@@ -471,8 +471,6 @@ void TOF_CoincidenceEvents::generateHistoForQA()
 	theAttrib->drawTextNDC( 0.05, 12, kRed, 0.15, 0.85, Form("t_resol= %.3f ns", fit->GetParameter(2)) );
 	canv00->Print("coincidence_dT.png");
 	
-	gStyle->SetOptStat(111111);
-	gStyle->SetOptFit(0);
 	TCanvas* canv01 = new TCanvas("canv01", "canv01");
 	fHisto_TvsQcal->Draw("colz");
 	gPad->SetGrid();
