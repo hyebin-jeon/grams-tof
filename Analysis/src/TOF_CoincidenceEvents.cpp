@@ -354,7 +354,14 @@ void TOF_CoincidenceEvents::reset()
   }
   
   vTree.clear();
-		
+
+	delete fHisto_dT;
+	delete fHisto_NbOfEvt;
+	delete fHisto_TvsQcal;
+	fHisto_dT = nullptr;
+  fHisto_NbOfEvt = nullptr;
+  fHisto_TvsQcal = nullptr;		
+
 	std::cout << "[TOF_CoincidenceEvents::reset()] Reset Completed" << std::endl;
 };
 
@@ -365,4 +372,126 @@ TOF_CoincidenceEvents::~TOF_CoincidenceEvents()
 	reset();
 	if( this==theCoin ) theCoin=nullptr;
 }
+	
+void TOF_CoincidenceEvents::generateHistoForQA()
+{
+	if( !fTreeCoin ){
+		std::cerr << "[TOF_CoincidenceEvents] fTreeCoin does NOT exist." << std::endl;
+		return;
+	}
+
+	if( fTreeCoin->GetEntries()==0 )
+	{
+		std::cerr << "[TOF_CoincidenceEvents] fTreeCoin has 0 entries." << std::endl;
+		return;
+	}
+
+	if( fActiveChannelList.size()!=4 ) {
+		std::cerr << "The number of active channels is not 4. Cannot proceed..Sorry, we are working on developing.." << std::endl;
+		return;
+	}
+
+	uint32_t channel0 = fActiveChannelList.at(0);
+
+	fHisto_dT = new TH1D("h_dT", "Time Diff between Paddles;Asym. time ratio (ns);", 300, -15, 15 );
+	fHisto_NbOfEvt = new TH1D("hNevt", ";Channel;Number of Coincidence events", 128*8, 0, 128*8);
+	fHisto_TvsQcal = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
 		
+	double ttimeBegin[4];
+	double qqdc[4];
+	double qqdc_cal[4];
+
+
+	std::vector<TOF_CoincidenceChannelInfo>* vBranchA = nullptr;
+	fTreeCoin->SetBranchAddress( "coinEvt", &vBranchA );
+
+	for( int i=0; i<fTreeCoin->GetEntries(); i++ )
+	{
+		fTreeCoin->GetEntry(i);
+
+	  std::sort( vBranchA->begin(), vBranchA->end(), [](const TOF_CoincidenceChannelInfo& a, const TOF_CoincidenceChannelInfo& b) { return a.channelID < b.channelID; });
+
+		//std::cout << "Number of elements in a branch: " << vBranchA.size() << std::endl;
+	  for( auto ele: *vBranchA ) 
+		{ 
+	    auto frameID  = ele.frameID  ;
+      auto channelID= (uint32_t) ele.channelID;
+      auto tacID    = ele.tacID    ;
+      auto tCoarse  = ele.tCoarse  ;
+      auto eCoarse  = ele.eCoarse  ;
+      auto tFine    = ele.tFine    ;
+      auto eFine    = ele.eFine    ;
+	    auto timeBegin= ele.timeBegin;
+	    auto timeEnd  = ele.timeEnd  ;
+	    double qdc_cal  = (double) ele.qdc_cal  ;
+
+			auto chanA = channelID-channel0; 
+			auto chanB = chanA%64;
+			auto chanC = chanA/64;
+			auto chanIdx = 2*chanC + chanB;
+
+			//std::cout << Form("[%04d] frameID: %lld, channel: %u, channel idx: %d, timeBegin: %4.3f", i, frameID, channelID, chanIdx, timeBegin) << std::endl;
+			
+			ttimeBegin[chanIdx] = timeBegin;
+			qqdc[chanIdx] = eFine;
+			qqdc_cal[chanIdx] = qdc_cal;
+			//cout << Form( "channelID: %03d, channel idx: %d, (A, B, C)= (%d, %d, %d)", channelID, chanIdx, chanA, chanB, chanC) << endl;
+		
+			fHisto_NbOfEvt->Fill( channelID );
+		}
+
+		//cout << Form("channels: %03d, %03d, %03d, %03d", vBranchA->at(0).channelID,  vBranchA->at(1).channelID,  vBranchA->at(2).channelID,  vBranchA->at(3).channelID) << endl;
+
+		double tdiff0 = ttimeBegin[0] - ttimeBegin[1];
+		double tdiff1 = ttimeBegin[2] - ttimeBegin[3];
+		double qCratio0 = (qqdc_cal[0] - qqdc_cal[1])/(qqdc_cal[0] + qqdc_cal[1]);
+		double qCratio1 = (qqdc_cal[2] - qqdc_cal[3])/(qqdc_cal[2] + qqdc_cal[3]);
+
+		//std::cout << Form("tdiff0: %4.3f, tdiff1: %4.2f", tdiff0, tdiff1) << std::endl;
+
+		double dT = ( (ttimeBegin[0]-ttimeBegin[2]) + (ttimeBegin[1]-ttimeBegin[3]) )/2.0* fTdcClkNs; // ns
+		//std::cout << Form("time: %4.4f", dT) << std::endl;
+		fHisto_dT->Fill( dT );
+
+		fHisto_TvsQcal->Fill( tdiff0, qCratio0 );
+		fHisto_TvsQcal->Fill( tdiff1, qCratio1 );
+
+		//if( i>100) break;
+	}
+
+  auto theAttrib   = TOF_Attributes::getInstance();
+
+	gStyle->SetOptStat(111111);
+	gStyle->SetOptFit(1111);
+	TCanvas* canv00 = new TCanvas("canv00", "canv00");
+	fHisto_dT->Draw();
+	auto theFit = TOF_Fitting::getInstance();
+	theFit->fitGauss( fHisto_dT, 2.5 );
+	auto fit = theFit->getFitFunction();
+	theAttrib->drawTextNDC( 0.05, 12, kRed, 0.15, 0.85, Form("t_resol= %.3f ns", fit->GetParameter(2)) );
+	canv00->Print("coincidence_dT.png");
+	
+	gStyle->SetOptStat(111111);
+	gStyle->SetOptFit(0);
+	TCanvas* canv01 = new TCanvas("canv01", "canv01");
+	fHisto_TvsQcal->Draw("colz");
+	gPad->SetGrid();
+	auto correlR = fHisto_TvsQcal->GetCorrelationFactor();
+	theAttrib->drawTextNDC( 0.05, 12, kBlack, 0.15, 0.85, Form("correl= %.2f", correlR) );
+	canv01->Print("coincidence_TvsQcal.png");
+
+	TCanvas* canv02 = new TCanvas("canv02", "canv02");
+	fHisto_NbOfEvt->Draw();
+	gPad->SetGrid();
+	canv02->Print("coincidence_CHvsNbOfEvt.png");
+
+	canv00->Close();
+	canv01->Close();
+	canv02->Close();
+
+	delete canv00;
+	delete canv01;
+	delete canv02;
+
+	return;
+}
