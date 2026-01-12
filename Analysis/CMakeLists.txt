@@ -70,4 +70,7 @@ install(TARGETS GramsTofAnalysisLib
 
 # header files are copied to include
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION include/Analysis)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/macro/ DESTINATION macro)
+
+add_subdirectory(scripts_c)
 
