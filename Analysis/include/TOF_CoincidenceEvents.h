@@ -6,9 +6,15 @@
 #include "TTree.h"
 #include "TFile.h"
 #include "TSystem.h"
+#include "TH1D.h"
+#include "TH2D.h"
+#include "TCanvas.h"
+#include "TStyle.h"
 #include "TOF_TdcQdcCalibration.h"
 #include "TOF_TreeData.h"
 #include "TOF_CoincidenceChannelInfo.h"
+#include "TOF_Fitting.h"
+#include "TOF_Attributes.h"
 
 enum class TOF_QdcCalibMethod {
 	fGetEnergy = 0,
@@ -57,12 +63,23 @@ class TOF_CoincidenceEvents : public TObject
 		std::vector<std::vector<TOF_CoincidenceChannelInfo>> getCoincidenceEvents();
 
 		void createCoinTree();
-
 		void reset();
-
 
 	public:
 		void setQdcCalibMethod( TOF_QdcCalibMethod calMethod ) { fQdcCalibMethod = calMethod; };
+
+	
+	/// for QA
+	private:
+		const double fTdcFreq = 200E6; // 200 MHz - need to doublecheck it
+		const double fTdcClk = 1./fTdcFreq; // sec
+		const double fTdcClkNs = fTdcClk/pow(10,-9); // ns
+
+	public:
+		TH1D* fHisto_dT{nullptr}; // time resolution (ns)
+		TH1D* fHisto_NbOfEvt{nullptr};
+	  TH2D* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
+		void generateHistoForQA();
 
 	ClassDef(TOF_CoincidenceEvents, 1)
 
