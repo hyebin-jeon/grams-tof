@@ -1,9 +1,13 @@
+#pragma once
 
 #include "TObject.h"
 #include "TF1.h"
 #include "TH1.h"
 #include "TH2.h"
 #include <array>
+
+#ifndef TOF_FITTING_H
+#define TOF_FITTING_H
 
 class TOF_Fitting : public TObject
 {
@@ -34,4 +38,6 @@ class TOF_Fitting : public TObject
 		ClassDef(TOF_Fitting, 1)
 
 };
+
+#endif
 
