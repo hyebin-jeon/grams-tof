@@ -15,8 +15,8 @@ target_include_directories(GramsTofAnalysisScriptsCLib PUBLIC
 target_link_libraries(GramsTofAnalysisScriptsCLib PUBLIC ${ROOT_LIBRARIES})
 target_link_libraries(GramsTofAnalysisScriptsCLib PUBLIC GramsTofAnalysisLib)
 
-add_executable(process_tofCoinEvt tools/process_tofCoinEvt.cpp)
-target_link_libraries(process_tofCoinEvt PRIVATE GramsTofAnalysisScriptsCLib)
+add_executable(process_tofCoinEvtQA tools/process_tofCoinEvtQA.cpp)
+target_link_libraries(process_tofCoinEvtQA PRIVATE GramsTofAnalysisScriptsCLib)
 
 install(TARGETS GramsTofAnalysisScriptsCLib
     EXPORT GramsTofLibraryTargets
@@ -27,7 +27,7 @@ install(TARGETS GramsTofAnalysisScriptsCLib
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/scripts_c)
 
-install(TARGETS process_tofCoinEvt
+install(TARGETS process_tofCoinEvtQA
     RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
 )
 

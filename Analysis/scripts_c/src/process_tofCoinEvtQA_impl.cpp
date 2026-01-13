@@ -1,4 +1,4 @@
-#include "process_tofCoinEvt.h"
+#include "process_tofCoinEvtQA.h"
 
 #include <TFile.h>
 #include <TTree.h>
@@ -23,11 +23,11 @@
 
 using namespace std;
 
-bool runProcessTofCoinEvt(const std::string& inputFile, 
-                          const std::string& outputBase, 
-                          int qdcMode,
-                          const std::string& tdcCalibPath,
-                          const std::string& qdcCalibPath)
+bool runProcessTofCoinEvtQA(const std::string& inputFile, 
+                            const std::string& outputBase, 
+                            int qdcMode,
+                            const std::string& tdcCalibPath,
+                            const std::string& qdcCalibPath)
 {
   gROOT->SetBatch(kTRUE);
   //warm up
