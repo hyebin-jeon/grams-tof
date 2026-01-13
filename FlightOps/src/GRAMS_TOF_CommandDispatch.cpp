@@ -425,6 +425,25 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         }
     };
 
+    // RUN_PROCESS_TOF_COIN_EVT
+    table_[TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA] = [&](const std::vector<int>& argv) {
+        try {
+            auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
+            int isQdcMode = argv.size() > 0 ? (argv[0] == 1) : 0;
+            return analyzer_.runPetsysProcessTofCoinEvtQA(
+                config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
+                config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
+                isQdcMode, 
+                config.getString("main", "tdc_calibration_table"),
+                config.getString("main", "qdc_calibration_table")
+            );
+        } catch (...) {
+            Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception in RUN_PROCESS_TOF_COIN_EVT");
+            return false;
+        }
+    };
+
     // HEART_BEAT
     table_[TOFCommandCode::HEART_BEAT] = [&](const std::vector<int>&) {
         try {

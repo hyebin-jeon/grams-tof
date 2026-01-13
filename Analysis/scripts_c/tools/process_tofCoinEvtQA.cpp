@@ -1,4 +1,4 @@
-#include "process_tofCoinEvt.h"
+#include "process_tofCoinEvtQA.h"
 #include <iostream>
 #include <getopt.h>
 
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (!runProcessTofCoinEvt(inputFile, outputBase, qdcMode, tdcCalib, qdcCalib)) {
+    if (!runProcessTofCoinEvtQA(inputFile, outputBase, qdcMode, tdcCalib, qdcCalib)) {
         std::cerr << "Analysis failed.\n";
         return 1;
     }

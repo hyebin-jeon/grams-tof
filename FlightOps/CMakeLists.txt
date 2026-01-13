@@ -34,6 +34,8 @@ else()
         GramsTofInihLib
         GramsTofScriptsCLib
         GramsTofGroundOpsLib
+        GramsTofAnalysisLib
+        GramsTofAnalysisScriptsCLib
         fmt::fmt
         rt
     )
