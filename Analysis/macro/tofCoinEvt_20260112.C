@@ -72,7 +72,7 @@ void tofCoinEvt_20251121_KS(const char* finPath = "", const char* foutPathBase =
 	//std::vector<TOF_CoincidenceChannelInfo>* vBranch = nullptr;
 	//tC->SetBranchAddress( "coinEvt", &vBranch );
 
-	theCoin->generateHistoForQA();
+	theCoin->generateHistoForQA(pdfName);
 
 	theCoin->fHisto_dT     ->Write();
 	theCoin->fHisto_NbOfEvt->Write();
