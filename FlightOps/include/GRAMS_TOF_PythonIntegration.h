@@ -22,6 +22,7 @@ public:
                            const std::string& functionName,
                            Args&&... args);
     bool runPetsysInitSystem(const std::string& scriptModule);
+    bool runPetsysStopDAQ(const std::string& scriptModule);
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptModule,
                                            const std::string& outputFile,
                                            const std::vector<int>& portIDs,

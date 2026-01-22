@@ -10,6 +10,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <queue> 
+#include <condition_variable>
 
 class GRAMS_TOF_CommandClient {
 public:
@@ -25,8 +27,11 @@ public:
     GRAMS_TOF_CommandClient(const GRAMS_TOF_CommandClient&) = delete;
     GRAMS_TOF_CommandClient& operator=(const GRAMS_TOF_CommandClient&) = delete;
 
+    bool isConnected() const;
+
 private:
     void run();  // Main client connection/read loop
+    void workerLoop(); // Background worker function
 
     // Configuration
     std::string hub_ip_;
@@ -35,10 +40,15 @@ private:
 
     // Threading and execution control
     std::thread client_thread_;
+    std::thread worker_thread_;
     std::atomic<bool> running_{false};
+
+    // Async Command Queue
+    std::deque<GRAMS_TOF_CommandCodec::Packet> commandQueue_;
+    std::mutex queueMutex_;
+    std::condition_variable queueCV_;
 
     // Connection State (Replaces the server's clientList_)
     std::unique_ptr<GRAMS_TOF_Client> hubConnection_;
-    std::mutex connectionMutex_; // Protects access to hubConnection_
-
+    mutable std::mutex connectionMutex_; // Protects access to hubConnection_
 };

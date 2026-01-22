@@ -102,6 +102,10 @@ public:
     bool runPetsysInitSystem(const std::string& scriptPath) {
         return runPythonFunction(scriptPath, "safe_init_system");
     }
+
+    bool runPetsysStopDAQ(const std::string& scriptPath) {
+        return runPythonFunction(scriptPath, "safe_stop_daq");
+    }
     
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
                                            const std::string& outputFile,
@@ -223,6 +227,9 @@ public:
     bool runPetsysInitSystem(const std::string& scriptPath) {
         return impl_->runPetsysInitSystem(scriptPath);
     }
+    bool runPetsysStopDAQ(const std::string& scriptPath) {
+        return impl_->runPetsysStopDAQ(scriptPath);
+    }
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
                                            const std::string& outputFile,
                                            const std::vector<int>& portIDs,
@@ -309,6 +316,7 @@ GRAMS_TOF_PythonIntegration::GRAMS_TOF_PythonIntegration(GRAMS_TOF_DAQManager& d
     PyRun_SimpleString("import sys; sys._called_from_c = True");
 
     loadPythonScript(resolveScriptPath("init_system.py"));
+    loadPythonScript(resolveScriptPath("stop_daq.py"));
     loadPythonScript(resolveScriptPath("make_bias_calibration_table.py"));
     loadPythonScript(resolveScriptPath("make_simple_bias_settings_table.py"));
     loadPythonScript(resolveScriptPath("make_simple_channel_map.py"));
@@ -339,6 +347,10 @@ bool GRAMS_TOF_PythonIntegration::runPythonFunction(const std::string& scriptPat
 
 bool GRAMS_TOF_PythonIntegration::runPetsysInitSystem(const std::string& scriptPath) {
     return impl_->runPetsysInitSystem(scriptPath);
+}
+
+bool GRAMS_TOF_PythonIntegration::runPetsysStopDAQ(const std::string& scriptPath) {
+    return impl_->runPetsysStopDAQ(scriptPath);
 }
 
 bool GRAMS_TOF_PythonIntegration::runPetsysMakeBiasCalibrationTable(
