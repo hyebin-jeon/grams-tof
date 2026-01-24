@@ -203,6 +203,9 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
 def safe_acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, dark_reads=4, ext_bias=False, mode="all"):
     try:
         return acquire_threshold_calibration(config_file, out_file_prefix, noise_reads, dark_reads, ext_bias, mode)
+    except ProcessLookupError:
+        print("[Python] Worker process already exited during cleanup. Continuing...")
+        return True
     except Exception as e:
         print("[Python] Caught exception:", e)
         traceback.print_exc()

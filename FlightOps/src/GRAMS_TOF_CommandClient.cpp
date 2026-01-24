@@ -35,11 +35,16 @@ void GRAMS_TOF_CommandClient::start() {
     if (running_) return;
     running_ = true;
     client_thread_ = std::thread(&GRAMS_TOF_CommandClient::run, this);
+    worker_thread_ = std::thread(&GRAMS_TOF_CommandClient::workerLoop, this);
 }
 
 void GRAMS_TOF_CommandClient::stop() {
     if (!running_) return;
     running_ = false;
+
+    // Wake up the worker so it can see running_ is false
+    queueCV_.notify_all();
+    if (worker_thread_.joinable()) worker_thread_.join();
 
     // Gracefully close the connection to unblock the run loop
     std::unique_ptr<GRAMS_TOF_Client> client_to_close = nullptr;
@@ -233,11 +238,18 @@ void GRAMS_TOF_CommandClient::run() {
                                                      pkt.code, serializedAck.size());                       
                         }
 
-                        // 3. Execute the handler
-                        handler_(pkt);
- 
-                        // 3. Remove the successfully processed packet from the buffer
-                        //incoming_buffer.erase(incoming_buffer.begin(), incoming_buffer.begin() + expectedSize);
+                        // 3. Queue the command for background execution instead of calling handler_ directly
+                        {
+                            std::lock_guard<std::mutex> lock(queueMutex_);
+                            if (pkt.code == 0x5001 || pkt.code == 0x5002) { // Stop or Reset
+                                commandQueue_.push_front(std::move(pkt)); // Jump to the front!
+                            } else {
+                                commandQueue_.push_back(std::move(pkt));
+                            }
+                        }
+                        queueCV_.notify_one();
+
+                        Logger::instance().debug("[CommandClient] Command 0x{:04X} queued.", pkt.code);
 
                     } else {
                         Logger::instance().error("[CommandClient] Failed to parse complete packet. Corrupt stream.", fd_in_event);
@@ -266,3 +278,33 @@ void GRAMS_TOF_CommandClient::run() {
 
     GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::COMMAND);
 }
+
+void GRAMS_TOF_CommandClient::workerLoop() {
+    while (running_) {
+        GRAMS_TOF_CommandCodec::Packet pkt;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex_);
+            queueCV_.wait(lock, [this] { return !commandQueue_.empty() || !running_; });
+
+            if (!running_ && commandQueue_.empty()) break;
+
+            pkt = std::move(commandQueue_.front());
+            commandQueue_.pop_front(); 
+        }
+
+        // Execute the handler safely in this background thread
+        try {
+            if (handler_) {
+                handler_(pkt);
+            }
+        } catch (const std::exception& e) {
+            Logger::instance().error("[CommandClient] Exception in worker execution: {}", e.what());
+        }
+    }
+}
+
+bool GRAMS_TOF_CommandClient::isConnected() const {
+    std::lock_guard<std::mutex> lock(connectionMutex_);
+    return (hubConnection_ != nullptr);
+}
+
