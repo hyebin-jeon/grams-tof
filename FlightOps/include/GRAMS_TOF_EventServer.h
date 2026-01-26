@@ -21,7 +21,7 @@ public:
     void start();
     void stop();
 
-    bool sendCallback(const std::vector<int32_t>& args);
+    bool sendCallback(const std::vector<uint32_t>& args);
     bool sendHeartbeat();
 
 private:

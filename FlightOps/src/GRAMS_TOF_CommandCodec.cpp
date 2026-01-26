@@ -14,16 +14,16 @@ static uint16_t read16(const uint8_t* ptr) {
 #endif
 }
 
-static int32_t read32(const uint8_t* ptr) {
+static uint32_t read32(const uint8_t* ptr) {
 #ifdef TOF_LITTLE_ENDIAN
-    return static_cast<int32_t>(ptr[0]) |
-           (static_cast<int32_t>(ptr[1]) << 8) |
-           (static_cast<int32_t>(ptr[2]) << 16) |
-           (static_cast<int32_t>(ptr[3]) << 24);
+    return static_cast<uint32_t>(ptr[0]) |
+           (static_cast<uint32_t>(ptr[1]) << 8) |
+           (static_cast<uint32_t>(ptr[2]) << 16) |
+           (static_cast<uint32_t>(ptr[3]) << 24);
 #else // BIG_ENDIAN
-    return (static_cast<int32_t>(ptr[0]) << 24) |
-           (static_cast<int32_t>(ptr[1]) << 16) |
-           (static_cast<int32_t>(ptr[2]) << 8)  |
+    return (static_cast<uint32_t>(ptr[0]) << 24) |
+           (static_cast<uint32_t>(ptr[1]) << 16) |
+           (static_cast<uint32_t>(ptr[2]) << 8)  |
            ptr[3];
 #endif
 }
@@ -38,7 +38,7 @@ static void write16(std::vector<uint8_t>& buf, uint16_t val) {
 #endif
 }
 
-static void write32(std::vector<uint8_t>& buf, int32_t val) {
+static void write32(std::vector<uint8_t>& buf, uint32_t val) {
 #ifdef TOF_LITTLE_ENDIAN
     buf.push_back(val & 0xFF);
     buf.push_back((val >> 8) & 0xFF);
@@ -185,7 +185,7 @@ uint16_t GRAMS_TOF_CommandCodec::computeCRC16_CCITT_8408(const uint8_t* data, si
 size_t GRAMS_TOF_CommandCodec::getPacketSize(const Packet& packet) {
     // Fixed Overhead: Header(4) + Code(2) + Argc(2) + CRC(2) + Footer(4) = 14 bytes
     static constexpr size_t FIXED_OVERHEAD = 14; 
-    static constexpr size_t ARG_SIZE = 4; // Each int32_t argument is 4 bytes
+    static constexpr size_t ARG_SIZE = 4; // Each uint32_t argument is 4 bytes
 
     return FIXED_OVERHEAD + (packet.argc * ARG_SIZE);
 }
