@@ -4,7 +4,7 @@
 // Header 2	uint16_t	 Fixed: 0x5B6A
 // Code	    uint16_t	 Command code
 // Argc	    uint16_t	 Number of arguments
-// Argv	    int32_t[]	 Arguments: argc × int32_t values
+// Argv	    uint32_t[] Arguments: argc uint32_t values
 // CRC	    uint16_t	 CRC checksum (of all prior fields)
 // Footer 1	uint16_t	 Fixed: 0xC5A4
 // Footer 2	uint16_t	 Fixed: 0xD279
@@ -22,7 +22,7 @@ public:
     struct Packet {
         uint16_t code;
         uint16_t argc;
-        std::vector<int32_t> argv;
+        std::vector<uint32_t> argv;
     };
 
     // Parse raw bytes into Packet

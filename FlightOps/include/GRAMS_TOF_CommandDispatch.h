@@ -24,14 +24,16 @@ public:
                               GRAMS_TOF_EventClient& eventClient);
     ~GRAMS_TOF_CommandDispatch();
 
-    bool dispatch(TOFCommandCode code, const std::vector<int>& argv);
+    using CommandArgs = std::vector<uint32_t>;
+    using CommandHandler = std::function<bool(const CommandArgs&)>;
+    bool dispatch(TOFCommandCode code, const CommandArgs& argv);
 
 private:
     GRAMS_TOF_PythonIntegration& pyint_;
     GRAMS_TOF_Analyzer& analyzer_;
     GRAMS_TOF_EventClient& eventClient_;
 
-    std::unordered_map<TOFCommandCode, std::function<bool(const std::vector<int>&)>> table_;
+    std::unordered_map<TOFCommandCode, CommandHandler> table_;
 
     // Thread and control for DAQ run
     std::thread daqThread_;

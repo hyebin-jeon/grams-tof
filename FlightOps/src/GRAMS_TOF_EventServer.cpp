@@ -223,7 +223,7 @@ bool GRAMS_TOF_EventServer::send(const GRAMS_TOF_CommandCodec::Packet& pkt) {
     return success;
 }
 
-bool GRAMS_TOF_EventServer::sendCallback(const std::vector<int32_t>& args) {
+bool GRAMS_TOF_EventServer::sendCallback(const std::vector<uint32_t>& args) {
     GRAMS_TOF_CommandCodec::Packet pkt;
     pkt.code = static_cast<uint16_t>(tof_bridge::toCommCode(TOFCommandCode::CALLBACK));
     pkt.argv = args;

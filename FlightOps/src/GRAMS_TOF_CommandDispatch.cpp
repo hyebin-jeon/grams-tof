@@ -13,7 +13,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     auto& config = GRAMS_TOF_Config::instance();
 
     // START_DAQ
-    table_[TOFCommandCode::START_DAQ] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::START_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::START_DAQ, [&]() {
             Logger::instance().warn("[Dispatch] Starting DAQ...");
             std::lock_guard<std::mutex> lock(daqMutex_);
@@ -36,7 +36,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // STOP_DAQ
-    table_[TOFCommandCode::STOP_DAQ] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::STOP_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::STOP_DAQ, [&]() {
             Logger::instance().warn("[STOP] Initiating Master Stop Sequence...");
     
@@ -83,7 +83,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RESET_DAQ
-    table_[TOFCommandCode::RESET_DAQ] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::RESET_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RESET_DAQ, [&]() {
             Logger::instance().warn("[RESET] Initiating Master Reset (Matching Stop Sequence)...");
         
@@ -142,7 +142,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_INIT_SYSTEM
-    table_[TOFCommandCode::RUN_INIT_SYSTEM] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::RUN_INIT_SYSTEM] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_INIT_SYSTEM, [&]() {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing init_system.py script...");
             return pyint_.runPetsysInitSystem("scripts.init_system");
@@ -150,22 +150,22 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_MAKE_BIAS_CALIB_TABLE
-    table_[TOFCommandCode::RUN_MAKE_BIAS_CALIB_TABLE] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_MAKE_BIAS_CALIB_TABLE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_MAKE_BIAS_CALIB_TABLE, [&]() {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing make_bias_calibration_table.py script...");
             return pyint_.runPetsysMakeBiasCalibrationTable(
                 "scripts.make_bias_calibration_table",
                 config.getString("main", "bias_calibration_table"),
-                {argv.size() > 0 ? argv[0] : 0},
-                {argv.size() > 1 ? argv[1] : 0},
-                {argv.size() > 2 ? argv[2] : 0},
+                {argv.size() > 0 ? static_cast<int>(argv[0]) : 0},
+                {argv.size() > 1 ? static_cast<int>(argv[1]) : 0},
+                {argv.size() > 2 ? static_cast<int>(argv[2]) : 0},
                 {}
             );
         });
     };
 
     // RUN_MAKE_SIMPLE_BIAS_SET_TABLE
-    table_[TOFCommandCode::RUN_MAKE_SIMPLE_BIAS_SET_TABLE] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_MAKE_SIMPLE_BIAS_SET_TABLE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_MAKE_SIMPLE_BIAS_SET_TABLE, [&]() {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing make_simple_bias_settings_table.py script...");
             return pyint_.runPetsysMakeSimpleBiasSettingsTable(
@@ -181,7 +181,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_MAKE_SIMPLE_CHANNEL_MAP
-    table_[TOFCommandCode::RUN_MAKE_SIMPLE_CHANNEL_MAP] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::RUN_MAKE_SIMPLE_CHANNEL_MAP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_MAKE_SIMPLE_CHANNEL_MAP, [&]() {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing make_simple_channel_map.py script...");
             return pyint_.runPetsysMakeSimpleChannelMap(
@@ -192,7 +192,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_MAKE_SIMPLE_DISC_SET_TABLE
-    table_[TOFCommandCode::RUN_MAKE_SIMPLE_DISC_SET_TABLE] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_MAKE_SIMPLE_DISC_SET_TABLE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_MAKE_SIMPLE_DISC_SET_TABLE, [&]() {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing make_simple_disc_settings_table.py script...");
             return pyint_.runPetsysMakeSimpleDiscSettingsTable(
@@ -207,7 +207,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_READ_TEMPERATURE_SENSORS
-    table_[TOFCommandCode::RUN_READ_TEMPERATURE_SENSORS] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_READ_TEMPERATURE_SENSORS] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing read_temperature_sensors.py script...");
             std::vector<std::string> sArgs;
@@ -230,7 +230,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_ACQUIRE_THRESHOLD_CALIBRATION
-    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting full threshold calibration in background...");
@@ -257,7 +257,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN (Baseline and Noise only) ---
-    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting Baseline/Noise calibration in background...");
@@ -282,7 +282,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
     
     // RUN_ACQUIRE_THRESHOLD_CALIBRATION_D (Dark counts only) ---
-    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_D] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_D] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting Baseline/Noise calibration in background...");
@@ -307,7 +307,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_ACQUIRE_QDC_CALIBRATION
-    table_[TOFCommandCode::RUN_ACQUIRE_QDC_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_QDC_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting QDC calibration in background...");
@@ -326,7 +326,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_ACQUIRE_TDC_CALIBRATION
-    table_[TOFCommandCode::RUN_ACQUIRE_TDC_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_TDC_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting TDC calibration in background...");
@@ -345,7 +345,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_ACQUIRE_SIPM_DATA
-    table_[TOFCommandCode::RUN_ACQUIRE_SIPM_DATA] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_ACQUIRE_SIPM_DATA] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[Dispatch] Starting SiPM data acquisition in background...");
@@ -370,7 +370,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_PROCESS_THRESHOLD_CALIBRATION
-    table_[TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "disc_calibration", "_noise.tsv");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running threshold calibration...");
@@ -387,7 +387,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_PROCESS_TDC_CALIBRATION
-    table_[TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "tdc_calibration");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TDC calibration...");
@@ -410,7 +410,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_PROCESS_QDC_CALIBRATION
-    table_[TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "qdc_calibration");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running QDC calibration...");
@@ -434,7 +434,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 
 
     // RUN_CONVERT_RAW_TO_RAW
-    table_[TOFCommandCode::RUN_CONVERT_RAW_TO_RAW] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_CONVERT_RAW_TO_RAW] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_CONVERT_RAW_TO_RAW, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG0Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting raw to raw...");
@@ -450,7 +450,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_CONVERT_RAW_TO_SINGLES
-    table_[TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG0Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting raw to singles...");
@@ -470,7 +470,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // RUN_PROCESS_TOF_COIN_EVT
-    table_[TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA] = [&](const std::vector<int>& argv) {
+    table_[TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
@@ -486,7 +486,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // HEART_BEAT
-    table_[TOFCommandCode::HEART_BEAT] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::HEART_BEAT] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             Logger::instance().detail("[GRAMS_TOF_CommandDispatch] Received HEART_BEAT from Hub");
             
@@ -501,7 +501,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     };
 
     // DUMMY_TEST
-    table_[TOFCommandCode::DUMMY_TEST] = [&](const std::vector<int>&) {
+    table_[TOFCommandCode::DUMMY_TEST] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Handling dummy command for testing");
     
@@ -546,13 +546,16 @@ void GRAMS_TOF_CommandDispatch::runDAQThread() {
     }
 }
 
-bool GRAMS_TOF_CommandDispatch::dispatch(TOFCommandCode code, const std::vector<int>& argv) {
+bool GRAMS_TOF_CommandDispatch::dispatch(TOFCommandCode code, const CommandArgs& argv) {
     auto it = table_.find(code);
     if (it != table_.end()) {
         try {
             return it->second(argv);
+        } catch (const std::exception& e) {
+            Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception for command {}: {}", static_cast<int>(code), e.what());
+            return false;
         } catch (...) {
-            Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception in dispatch for command {}", static_cast<int>(code));
+            Logger::instance().error("[GRAMS_TOF_CommandDispatch] Unknown exception for command: {}", static_cast<int>(code));
             return false;
         }
     }
