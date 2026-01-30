@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TObject.h"
+#include "TTimeStamp.h"
 
 class TOF_CoincidenceChannelInfo : public TObject
 {
@@ -8,9 +9,11 @@ class TOF_CoincidenceChannelInfo : public TObject
 		TOF_CoincidenceChannelInfo();
 		~TOF_CoincidenceChannelInfo();
 	public:
+	TTimeStamp      ts_cpu;
+	TTimeStamp      ts_pps;
 	long long       frameID;
   //unsigned int    channelID;
-  uint32_t    channelID;
+  uint32_t        channelID;
   unsigned short  tacID;
   unsigned short  tCoarse;
   unsigned short  eCoarse;

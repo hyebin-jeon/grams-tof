@@ -11,7 +11,8 @@
 #include "TCanvas.h"
 #include "TStyle.h"
 #include "TOF_TdcQdcCalibration.h"
-#include "TOF_TreeData.h"
+#include "TOF_TreeDataStg1.h"
+#include "TOF_TreeDataStg2.h"
 #include "TOF_CoincidenceChannelInfo.h"
 #include "TOF_Fitting.h"
 #include "TOF_Attributes.h"
@@ -39,13 +40,21 @@ class TOF_CoincidenceEvents : public TObject
 		
 		//TOF_TdcQdcCalibration* theCalib{nullptr};
 	
-	private:
-		TTree* fTreeCoin{nullptr};
-	  std::vector<TOF_CoincidenceChannelInfo> vBranch;
-		std::vector<std::vector<TOF_CoincidenceChannelInfo>> vTree;
+		TOF_TreeDataStg2* fStg2 = new TOF_TreeDataStg2(); //{nullptr};
 
 	private:
-		TOF_TreeData* fTree{nullptr};
+		int fStg2Good{-1};
+
+		//TTree* fTreeStg2{nullptr};
+		TTree* fTreeCoin{nullptr};
+	  std::vector<TOF_CoincidenceChannelInfo> vBranch;
+		//std::vector<std::vector<TOF_CoincidenceChannelInfo>> vTree;
+
+	private:
+		bool fUseStg1{false};
+		bool fUseStg2{false};
+		TOF_TreeDataStg2* fTree{nullptr};
+		TOF_TreeDataStg1* fTreeStg1{nullptr};
 		uint32_t fTrigChannelID{0}; // absolute channel ID of a trigger channelj
 		double   fCoinTimeWindow{1};
 		TOF_QdcCalibMethod fQdcCalibMethod{ TOF_QdcCalibMethod::fGetEnergy };
@@ -54,13 +63,15 @@ class TOF_CoincidenceEvents : public TObject
 		std::vector< uint32_t > fActiveChannelList;
 
 	public:
-		int  setTreeData( TOF_TreeData* tr );// { fTree = tr; };
+		int  setInputPathStg2( const char* fnameStg2 );
+		int  setTreeData( TOF_TreeDataStg1* tr );// { fTree = tr; };
+		int  setTreeData( TOF_TreeDataStg2* tr );// { fTree = tr; };
 		void setTriggerChannel( uint32_t trigCh ) { fTrigChannelID = trigCh; }; // coincidence evt using trigger channel is not prepared yet
 		void setActiveChannels( std::vector<uint32_t> chanList );
 		void setCoincidenceTimeWindowInClk( double twindow ) { fCoinTimeWindow = twindow; }; // in clock
 
 		TTree* getCoincidenceEventsTree();
-		std::vector<std::vector<TOF_CoincidenceChannelInfo>> getCoincidenceEvents();
+		//std::vector<std::vector<TOF_CoincidenceChannelInfo>> getCoincidenceEvents();
 
 		void createCoinTree();
 		void reset();
