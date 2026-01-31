@@ -71,6 +71,9 @@ def acquire_tdc_calibration(config_path, file_name_prefix):
 def safe_acquire_tdc_calibration(config_path, file_name_prefix):
     try:
         return acquire_tdc_calibration(config_path, file_name_prefix)
+    except ProcessLookupError:
+        print("[Python] Worker process already exited during cleanup. Continuing...")
+        return True 
     except Exception as e:
         print("[Python] Caught exception:", e)
         if os.environ.get("DEBUG"):

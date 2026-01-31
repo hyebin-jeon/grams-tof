@@ -90,7 +90,7 @@ class TOF_CoincidenceEvents : public TObject
 		TH1D* fHisto_dT{nullptr}; // time resolution (ns)
 		TH1D* fHisto_NbOfEvt{nullptr};
 	  TH2D* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
-		void generateHistoForQA();
+		void generateHistoForQA(const char* pdfName);
 
 	ClassDef(TOF_CoincidenceEvents, 1)
 

@@ -42,8 +42,20 @@ GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
     : config_(config),
       daq_("/tmp/d.sock", "/daqd_shm", 0, "GBE", {"/dev/psdaq0"}),
       pyint_(daq_),
-      analyzer_(),
-      dispatchTable_(pyint_, analyzer_)
+      eventClient_(std::make_unique<GRAMS_TOF_EventClient>(
+          config.remoteEventHub, 
+          config.eventTargetPort,
+          [](const GRAMS_TOF_CommandCodec::Packet& pkt) {
+          }
+      )),
+      commandClient_(std::make_unique<GRAMS_TOF_CommandClient>(
+          config.remoteCommandHub,
+          config.commandListenPort,
+          [this](const GRAMS_TOF_CommandCodec::Packet& pkt) {
+              this->handleIncomingCommand(pkt);
+          }
+      )),
+      dispatchTable_(pyint_, analyzer_, *eventClient_)
 {
     setupSystemFiles();
     setenv("DEBUG", "1", 1);
@@ -64,23 +76,30 @@ bool GRAMS_TOF_DAQController::initialize() {
         Logger::instance().info("[System] Running in no-FPGA mode (DAQ init skipped)");
     }
 
-    eventClient_ = std::make_unique<GRAMS_TOF_EventClient>(
-        config_.remoteEventHub,
-        config_.eventTargetPort,
-        [](const GRAMS_TOF_CommandCodec::Packet& pkt) {
-            Logger::instance().info("[EventClient] Received Event Packet Code: 0x{:04X}", static_cast<int>(pkt.code));
-        }
-    );
-
-    commandClient_ = std::make_unique<GRAMS_TOF_CommandClient>(
-        config_.remoteCommandHub,    
-        config_.commandListenPort,
-        std::bind(&GRAMS_TOF_DAQController::handleIncomingCommand, this, std::placeholders::_1)
-    );
-
     // Start network services
     eventClient_->start();
     commandClient_->start();
+
+    Logger::instance().info("[System] Waiting for Hub connection...");
+
+    int retries = 0;
+    const int max_retries = 50; // 5 seconds
+    while (keepRunning_ && retries < max_retries) {
+        bool eventReady = eventClient_->isConnected();
+        bool commandReady = commandClient_->isConnected();
+
+        if (eventReady && commandReady) {
+            Logger::instance().info("[System] All Hub connections established.");
+            break;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        retries++;
+    }
+
+    if (retries >= max_retries) {
+        Logger::instance().warn("[System] Startup synchronization timed out. Network may be degraded.");
+    }
 
     Logger::instance().info("[System] Event service (CLIENT) sending to {}:{}", config_.remoteEventHub, config_.eventTargetPort);
     Logger::instance().info("[System] Command service (SERVER) listening on port {}", config_.commandListenPort);
@@ -97,20 +116,6 @@ void GRAMS_TOF_DAQController::handleIncomingCommand(const GRAMS_TOF_CommandCodec
     if (!dispatchTable_.dispatch(code, argv)) {
         Logger::instance().error("[CommandClient] Command failed or unknown: 0x{:04X}", static_cast<int>(code));
     }
-
-    // --- CORE LOGIC: Send the CALLBACK event using the Event Client ---
-    GRAMS_TOF_CommandCodec::Packet callbackPkt;
-    callbackPkt.code = static_cast<uint16_t>(pgrams::communication::CommunicationCodes::TOF_Callback);
-    callbackPkt.argv.push_back(static_cast<int32_t>(code));
-    callbackPkt.argc = callbackPkt.argv.size();
-
-    if (eventClient_->sendPacket(callbackPkt)) {
-        Logger::instance().info("[EventClient] CALLBACK sent for command 0x{:04X} to {}",
-                                static_cast<int>(code), config_.remoteEventHub);
-    } else {
-        Logger::instance().warn("[EventClient] Failed to send CALLBACK for command 0x{:04X}",
-                                static_cast<int>(code));
-    }
 }
 
 void GRAMS_TOF_DAQController::run() {
@@ -120,6 +125,9 @@ void GRAMS_TOF_DAQController::run() {
         // Sleep briefly to avoid busy-waiting and allow other threads to run
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    Logger::instance().info("[System] Finalizing network transmissions...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     commandClient_->stop();
     eventClient_->stop();

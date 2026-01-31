@@ -28,6 +28,8 @@ public:
     GRAMS_TOF_EventClient(const GRAMS_TOF_EventClient&) = delete;
     GRAMS_TOF_EventClient& operator=(const GRAMS_TOF_EventClient&) = delete;
 
+    bool isConnected() const;
+
 private:
     void run();  // Main client connection/read loop
 
@@ -42,5 +44,5 @@ private:
 
     // Connection State (Single connection to the Event Server)
     std::unique_ptr<GRAMS_TOF_Client> hubConnection_;
-    std::mutex connectionMutex_; // Protects structural access to hubConnection_
+    mutable std::mutex connectionMutex_; // Protects structural access to hubConnection_
 };

@@ -96,6 +96,7 @@ bool GRAMS_TOF_EventClient::sendPacket(const GRAMS_TOF_CommandCodec::Packet& pac
 
     // 4. Send the data using the underlying client object
     if (hubConnection_->sendData(serialized_data)) {
+        Logger::instance().debug("[EventClient] Successfully sent packet 0x{:04X}.", packet.code);
         return true;
     } else {
         // FIX: Using fd() instead of getFD() based on GRAMS_TOF_Client.h
@@ -260,3 +261,10 @@ void GRAMS_TOF_EventClient::run() {
 
     GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::EVENT);
 }
+
+
+bool GRAMS_TOF_EventClient::isConnected() const {
+    std::lock_guard<std::mutex> lock(connectionMutex_);
+    return (hubConnection_ != nullptr);
+}
+

@@ -132,6 +132,9 @@ def acquire_sipm_data(config_path, file_name_prefix, acquisition_time, mode, hw_
 def safe_acquire_sipm_data(config_path, file_name_prefix, acquisition_time, mode, hw_trigger=False, param_table=None):
     try:
         return acquire_sipm_data(config_path, file_name_prefix, acquisition_time, mode, hw_trigger, param_table)
+    except ProcessLookupError:
+        print("[Python] Worker process already exited during cleanup. Continuing...")
+        return True
     except Exception as e:
         print("[Python] Caught exception:", e)
         if os.environ.get("DEBUG"):

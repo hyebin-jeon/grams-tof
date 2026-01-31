@@ -29,6 +29,12 @@ else()
     endif()
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    option(ENABLE_DAQ "Build DAQ components (FlightOps)" ON)
+else()
+    option(ENABLE_DAQ "Build DAQ components (FlightOps)" OFF)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
@@ -79,7 +85,13 @@ else()
 endif()
 
 add_subdirectory(Analysis)
-add_subdirectory(FlightOps)
+if(ENABLE_DAQ)
+    message(STATUS "[Build] DAQ Mode: Configuring FlightOps")
+    add_subdirectory(FlightOps)
+else()
+    message(STATUS "[Build] Analysis Mode: Skipping FlightOps.")
+endif()
+
 #install(DIRECTORY ${CMAKE_SOURCE_DIR}/Tool/ DESTINATION ${CMAKE_INSTALL_PREFIX}/Tool)
 
 install(EXPORT GramsTofLibraryTargets

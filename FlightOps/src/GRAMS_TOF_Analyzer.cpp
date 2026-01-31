@@ -4,6 +4,7 @@
 #include "process_qdc_calibration.h"
 #include "convert_raw_to_raw.h"
 #include "convert_raw_to_singles.h"
+#include "process_tofCoinEvtQA.h"
 
 bool GRAMS_TOF_Analyzer::runPetsysProcessThresholdCalibration(
     const std::string& configFile,
@@ -70,5 +71,17 @@ bool GRAMS_TOF_Analyzer::runPetsysConvertRawToSingles(
                    runConvertRawToSingles,
                    configFileName, inputFilePrefix, outputFileName,
                    fileType, eventFractionToWrite, fileSplitTime);
+}
+
+bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
+    const std::string& inputFile,
+    const std::string& outputBase,
+    int qdcMode,
+    const std::string& tdcCalibPath,
+    const std::string& qdcCalibPath)
+{
+    return safeRun("runPetsysProcessTofCoinEvt",
+                   runProcessTofCoinEvtQA,
+                   inputFile, outputBase, qdcMode, tdcCalibPath, qdcCalibPath);
 }
 

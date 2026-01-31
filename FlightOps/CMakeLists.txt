@@ -34,6 +34,8 @@ else()
         GramsTofInihLib
         GramsTofScriptsCLib
         GramsTofGroundOpsLib
+        GramsTofAnalysisLib
+        GramsTofAnalysisScriptsCLib
         fmt::fmt
         rt
     )
@@ -46,11 +48,11 @@ else()
     endif()
 
     # ----------------- Executables -----------------
-    add_executable(grams_tof_server_daq tools/grams_tof_server_daq.cpp)
-    target_link_libraries(grams_tof_server_daq PRIVATE GramsTofFlightOpsLib cli11)
+    #add_executable(grams_tof_server_daq tools/grams_tof_server_daq.cpp)
+    #target_link_libraries(grams_tof_server_daq PRIVATE GramsTofFlightOpsLib cli11)
 
-    add_executable(test_grams_tof_server_daq tools/test_grams_tof_server_daq.cpp)
-    target_link_libraries(test_grams_tof_server_daq PRIVATE GramsTofFlightOpsLib cli11)
+    #add_executable(test_grams_tof_server_daq tools/test_grams_tof_server_daq.cpp)
+    #target_link_libraries(test_grams_tof_server_daq PRIVATE GramsTofFlightOpsLib cli11)
 
     add_executable(grams_tof_client_daq tools/grams_tof_client_daq.cpp)
     target_link_libraries(grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11)
@@ -70,12 +72,12 @@ else()
         RUNTIME DESTINATION bin
     )
 
-    install(TARGETS grams_tof_server_daq
-        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-    )
-    install(TARGETS test_grams_tof_server_daq
-        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
-    )
+    #install(TARGETS grams_tof_server_daq
+    #    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    #)
+    #install(TARGETS test_grams_tof_server_daq
+    #    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    #)
     install(TARGETS grams_tof_client_daq
         RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     )

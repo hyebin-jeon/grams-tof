@@ -39,6 +39,12 @@ public:
                                       long long eventFractionToWrite = 1024,
                                       double fileSplitTime = 0.0);
 
+    bool runPetsysProcessTofCoinEvtQA(const std::string& inputFile,
+                                      const std::string& outputBase,
+                                      int qdcMode = 1,
+                                      const std::string& tdcCalibPath = "",
+                                      const std::string& qdcCalibPath = "");
+
 private:
     template<typename Func, typename... Args>
     bool safeRun(const std::string& name, Func&& func, Args&&... args) {

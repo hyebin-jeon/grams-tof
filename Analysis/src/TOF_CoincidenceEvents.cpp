@@ -209,7 +209,7 @@ TOF_CoincidenceEvents::~TOF_CoincidenceEvents()
 	if( this==theCoin ) theCoin=nullptr;
 }
 	
-void TOF_CoincidenceEvents::generateHistoForQA()
+void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 {
 	if( !fTreeCoin ){
 		std::cerr << "[ERR] TOF_CoincidenceEvents: fTreeCoin does NOT exist." << std::endl;
@@ -295,6 +295,8 @@ void TOF_CoincidenceEvents::generateHistoForQA()
 
   auto theAttrib   = TOF_Attributes::getInstance();
 
+
+
 	gStyle->SetOptStat(111111);
 	gStyle->SetOptFit(1111);
 	TCanvas* canv00 = new TCanvas("canv00", "canv00");
@@ -303,19 +305,22 @@ void TOF_CoincidenceEvents::generateHistoForQA()
 	theFit->fitGauss( fHisto_dT, 2.5 );
 	auto fit = theFit->getFitFunction();
 	theAttrib->drawTextNDC( 0.05, 12, kRed, 0.15, 0.85, Form("t_resol= %.3f ns", fit->GetParameter(2)) );
-	canv00->Print("coincidence_dT.png");
+	//canv00->Print("coincidence_dT.png");
+  canv00->Print( Form("%s(", pdfName) );
 	
 	TCanvas* canv01 = new TCanvas("canv01", "canv01");
 	fHisto_TvsQcal->Draw("colz");
 	gPad->SetGrid();
 	auto correlR = fHisto_TvsQcal->GetCorrelationFactor();
 	theAttrib->drawTextNDC( 0.05, 12, kBlack, 0.15, 0.85, Form("correl= %.2f", correlR) );
-	canv01->Print("coincidence_TvsQcal.png");
+	//canv01->Print("coincidence_TvsQcal.png");
+  canv01->Print( pdfName );
 
 	TCanvas* canv02 = new TCanvas("canv02", "canv02");
 	fHisto_NbOfEvt->Draw();
 	gPad->SetGrid();
-	canv02->Print("coincidence_CHvsNbOfEvt.png");
+	//canv02->Print("coincidence_CHvsNbOfEvt.png");
+  canv02->Print( Form("%s)", pdfName) );
 
 	canv00->Close();
 	canv01->Close();

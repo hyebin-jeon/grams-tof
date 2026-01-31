@@ -240,7 +240,10 @@ void GRAMS_TOF_Config::copyOrLink(const std::string& srcPath, const std::string&
     );
 
     if (!fs::exists(src)) throw std::runtime_error("Source file does not exist: " + src.string());
-    if (fs::exists(dst)) fs::remove(dst);  
+
+    if (fs::exists(dst) || fs::is_symlink(dst)) {
+        fs::remove_all(dst);
+    }
 
     if (symlink) {
         fs::create_symlink(src, dst);

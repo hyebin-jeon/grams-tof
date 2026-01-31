@@ -45,11 +45,13 @@ private:
     // 2. Command/Analysis Components
     GRAMS_TOF_PythonIntegration pyint_;
     GRAMS_TOF_Analyzer analyzer_;
-    GRAMS_TOF_CommandDispatch dispatchTable_;
 
     // 3. Networking Clients
     std::unique_ptr<GRAMS_TOF_EventClient> eventClient_;
     std::unique_ptr<GRAMS_TOF_CommandClient> commandClient_;
+
+    // 4. Dispatch Table
+    GRAMS_TOF_CommandDispatch dispatchTable_;
 
     // Helper to initialize logging and configuration
     void setupSystemFiles();
