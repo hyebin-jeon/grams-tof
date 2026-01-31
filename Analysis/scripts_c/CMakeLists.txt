@@ -4,7 +4,7 @@ message("${BMagenta}[============ Entering TOF Scripts C Subdirectory ==========
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "include/*.h")
 
-find_package(Boost REQUIRED COMPONENTS random)
+#find_package(Boost REQUIRED COMPONENTS random)
 
 # Make a lib for all the stuff
 add_library(GramsTofAnalysisScriptsCLib SHARED ${SOURCES})
