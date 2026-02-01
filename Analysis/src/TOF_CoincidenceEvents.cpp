@@ -227,6 +227,8 @@ void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 		return;
 	}
 
+  auto theAttrib   = TOF_Attributes::getInstance();
+
 	uint32_t channel0 = fActiveChannelList.at(0);
 
 	fHisto_dT = new TH1D("h_dT", "Time Diff between Paddles;Asym. time ratio (ns);", 300, -15, 15 );
@@ -292,9 +294,6 @@ void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 		fHisto_TvsQcal->Fill( tdiff1, qCratio1 );
 
 	}
-
-  auto theAttrib   = TOF_Attributes::getInstance();
-
 
 
 	gStyle->SetOptStat(111111);

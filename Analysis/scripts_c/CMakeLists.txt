@@ -1,33 +1,41 @@
 project(Grams_Tof_Analysis_Scripts_C)
 message("${BMagenta}[============ Entering TOF Scripts C Subdirectory ============]${ColReset}")
 
-file(GLOB SOURCES "src/*.cpp")
-file(GLOB HEADERS "include/*.h")
+## c++17 to use std::filesystem
+#set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-#find_package(Boost REQUIRED COMPONENTS random)
+set(SOURCES
+    src/process_convertStg1ToStg2_impl.cpp
+    src/process_tofCoinEvtQA_impl.cpp
+)
 
-# Make a lib for all the stuff
 add_library(GramsTofAnalysisScriptsCLib SHARED ${SOURCES})
+
 target_include_directories(GramsTofAnalysisScriptsCLib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/scripts_c>
 )
-target_link_libraries(GramsTofAnalysisScriptsCLib PUBLIC ${ROOT_LIBRARIES})
-target_link_libraries(GramsTofAnalysisScriptsCLib PUBLIC GramsTofAnalysisLib)
 
+target_link_libraries(GramsTofAnalysisScriptsCLib PUBLIC ${ROOT_LIBRARIES} GramsTofAnalysisLib)
+
+# tofCoinEvtQA
 add_executable(process_tofCoinEvtQA tools/process_tofCoinEvtQA.cpp)
 target_link_libraries(process_tofCoinEvtQA PRIVATE GramsTofAnalysisScriptsCLib)
 
+# convertStg1ToStg2
+add_executable(process_convertStg1ToStg2 tools/process_convertStg1ToStg2.cpp)
+target_link_libraries(process_convertStg1ToStg2 PRIVATE GramsTofAnalysisScriptsCLib)
+
 install(TARGETS GramsTofAnalysisScriptsCLib
-    EXPORT GramsTofLibraryTargets
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
+                process_tofCoinEvtQA
+                process_convertStg1ToStg2
+        EXPORT GramsTofLibraryTargets
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/scripts_c)
-
-install(TARGETS process_tofCoinEvtQA
-    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ 
+        DESTINATION include/scripts_c
 )
-

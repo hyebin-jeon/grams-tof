@@ -76,12 +76,11 @@ bool GRAMS_TOF_Analyzer::runPetsysConvertRawToSingles(
 bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
     const std::string& inputFile,
     const std::string& outputBase,
-    int qdcMode,
     const std::string& tdcCalibPath,
     const std::string& qdcCalibPath)
 {
     return safeRun("runPetsysProcessTofCoinEvt",
                    runProcessTofCoinEvtQA,
-                   inputFile, outputBase, qdcMode, tdcCalibPath, qdcCalibPath);
+                   inputFile, outputBase, tdcCalibPath, qdcCalibPath);
 }
 

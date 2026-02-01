@@ -86,11 +86,16 @@ class TOF_CoincidenceEvents : public TObject
 		const double fTdcClk = 1./fTdcFreq; // sec
 		const double fTdcClkNs = fTdcClk/pow(10,-9); // ns
 
-	public:
 		TH1D* fHisto_dT{nullptr}; // time resolution (ns)
 		TH1D* fHisto_NbOfEvt{nullptr};
 	  TH2D* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
+	
+	public:
 		void generateHistoForQA(const char* pdfName);
+		TH1D* getHisto_TimeResol()       { return fHisto_dT     ; };
+		TH1D* getHisto_ChannelVsNevents(){ return fHisto_NbOfEvt; };
+		TH2D* getHisto_TdcVsQcalib()     { return fHisto_TvsQcal; };
+
 
 	ClassDef(TOF_CoincidenceEvents, 1)
 
