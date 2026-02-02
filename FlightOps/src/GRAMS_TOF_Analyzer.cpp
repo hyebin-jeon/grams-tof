@@ -73,6 +73,17 @@ bool GRAMS_TOF_Analyzer::runPetsysConvertRawToSingles(
                    fileType, eventFractionToWrite, fileSplitTime);
 }
 
+
+bool GRAMS_TOF_Analyzer::runPetsysConvertStg1ToStg2(
+    const std::string& inputFileName,
+    const std::string& outputDir)
+{
+    return safeRun("runPetsysConvertStg1ToStg2",
+                   runConvertStg1ToStg2,
+                   inputFileName, outputDir);
+}
+
+
 bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
     const std::string& inputFile,
     const std::string& outputBase,
