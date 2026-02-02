@@ -1,5 +1,6 @@
 #include "TOF_Constants.h"
 #include "TOF_ChannelConversion.h"
+#include <cmath>
 
 ClassImp( TOF_ChannelConversion );
 

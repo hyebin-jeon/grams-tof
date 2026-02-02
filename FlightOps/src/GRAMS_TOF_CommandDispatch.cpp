@@ -484,10 +484,10 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     // RUN_PROCESS_TOF_COIN_EVT
     table_[TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA, [&]() {
-            auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
+            auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
             return analyzer_.runPetsysProcessTofCoinEvtQA(
-                config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
+                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
                 config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
                 //isQdcMode, 
                 config.getString("main", "tdc_calibration_table"),

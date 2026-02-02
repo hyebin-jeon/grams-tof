@@ -4,6 +4,7 @@
 #include "process_qdc_calibration.h"
 #include "convert_raw_to_raw.h"
 #include "convert_raw_to_singles.h"
+#include "process_convertStg1ToStg2.h"
 #include "process_tofCoinEvtQA.h"
 
 bool GRAMS_TOF_Analyzer::runPetsysProcessThresholdCalibration(
