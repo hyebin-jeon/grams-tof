@@ -1037,6 +1037,10 @@ static void calibrateAllAsics(int linearityNbins, float linearityRangeMinimum, f
 			nWorkers --;
 		}
 		else if (r < 0) {
+      if (errno == ECHILD) { 
+          nWorkers = 0; 
+          break; 
+      }
 			//fprintf(stderr, "Unexpected error on %s:%d: %s\n", __FILE__ , __LINE__, strerror(errno));
 			//exit(1);
       std::ostringstream oss;
