@@ -40,20 +40,28 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-
     if (outputBase.empty()) {
         std::cout << "[WARN] Output File Path is not given. Use default.\n";
-      if (!runProcessTofCoinEvtQA(inputFile, "", tdcCalib, qdcCalib)) {
-          std::cerr << "[ERR] Analysis failed.\n";
-          return 1;
-      }
-		}
-		else {
-      if (!runProcessTofCoinEvtQA(inputFile, outputBase, tdcCalib, qdcCalib)) {
-          std::cerr << "[ERR] Analysis failed.\n";
-          return 1;
-      }
-		}
+    }
+		
+		if (!runProcessTofCoinEvtQA(inputFile, outputBase, tdcCalib, qdcCalib)) {
+			std::cerr << "[ERR] Analysis failed.\n";
+      return 1;
+    }
+
+    //if (outputBase.empty()) {
+    //    std::cout << "[WARN] Output File Path is not given. Use default.\n";
+    //  if (!runProcessTofCoinEvtQA(inputFile, "", tdcCalib, qdcCalib)) {
+    //      std::cerr << "[ERR] Analysis failed.\n";
+    //      return 1;
+    //  }
+		//}
+		//else {
+    //  if (!runProcessTofCoinEvtQA(inputFile, outputBase, tdcCalib, qdcCalib)) {
+    //      std::cerr << "[ERR] Analysis failed.\n";
+    //      return 1;
+    //  }
+		//}
 
     return 0;
 }
