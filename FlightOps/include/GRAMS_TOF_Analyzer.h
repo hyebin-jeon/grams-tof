@@ -38,6 +38,9 @@ public:
                                       PETSYS::FILE_TYPE fileType = PETSYS::FILE_TEXT,
                                       long long eventFractionToWrite = 1024,
                                       double fileSplitTime = 0.0);
+ 
+   bool runPetsysConvertStg1ToStg2(const std::string& inputFileName,
+                                   const std::string& outputDir);
 
     bool runPetsysProcessTofCoinEvtQA(const std::string& inputFile,
                                       const std::string& outputBase,
