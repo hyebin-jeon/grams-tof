@@ -183,6 +183,7 @@ void TOF_ChannelConversion::fillMapConnIdToChannelId()
 		
 void TOF_ChannelConversion::fillMapChannelIdToConnId()
 {
+	if( fMap_ConnIdToChannelId.size() != 128 ) fillMapConnIdToChannelId(); 
 	for( int i=0; i<128; i++ )
 	{
 		uint8_t connID = i+1;

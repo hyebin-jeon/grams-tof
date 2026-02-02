@@ -33,6 +33,7 @@ public:
     std::string getTOFDataDir() const;       // returns $TOFDATA
     std::string getSTG0Dir() const;          // $TOFDATA/stg0
     std::string getSTG1Dir() const;          // $TOFDATA/stg1
+    std::string getSTG2Dir() const;          // $TOFDATA/stg2
     std::string getHistDir() const;          // $TOFDATA/hist
     std::string getDiscDir() const;          // $TOFDATA/disc
     std::string getQDCDir() const;           // $TOFDATA/qdc
@@ -59,6 +60,7 @@ inline std::string GRAMS_TOF_Config::getConfigDir()  const { return configDir_; 
 inline std::string GRAMS_TOF_Config::getTOFDataDir() const { return tofdataDir_; }
 inline std::string GRAMS_TOF_Config::getSTG0Dir()    const { return tofdataDir_ + "/stg0"; }
 inline std::string GRAMS_TOF_Config::getSTG1Dir()    const { return tofdataDir_ + "/stg1"; }
+inline std::string GRAMS_TOF_Config::getSTG2Dir()    const { return tofdataDir_ + "/stg2"; }
 inline std::string GRAMS_TOF_Config::getHistDir()    const { return tofdataDir_ + "/hist"; }
 inline std::string GRAMS_TOF_Config::getDiscDir()    const { return tofdataDir_ + "/disc"; }
 inline std::string GRAMS_TOF_Config::getQDCDir()     const { return tofdataDir_ + "/qdc"; }

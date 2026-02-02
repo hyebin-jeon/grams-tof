@@ -23,5 +23,11 @@ enum class TOF_Discriminator {
   fDiscE  = 3,
 };
 
-#define TOF_ERR_OUT_OF_RANGE -1
+const double fTOF_TdcClkFreq = 200E6; // 200 MHz
+const double fTOF_TdcClkPer = 1./fTOF_TdcClkFreq; // period in sec
+const double fTOF_TdcClkPerNs = fTOF_TdcClkPer * 1E9; // period in nsec
+
+#define TOF_GOOD 1
+#define TOF_WARNING -1
+#define TOF_ERR_OUT_OF_RANGE -2
 

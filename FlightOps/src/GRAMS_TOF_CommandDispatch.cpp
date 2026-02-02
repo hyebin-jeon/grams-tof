@@ -478,7 +478,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return analyzer_.runPetsysProcessTofCoinEvtQA(
                 config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
                 config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
-                isQdcMode, 
+                //isQdcMode, 
                 config.getString("main", "tdc_calibration_table"),
                 config.getString("main", "qdc_calibration_table")
             );

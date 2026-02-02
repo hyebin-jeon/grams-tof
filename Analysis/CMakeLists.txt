@@ -5,7 +5,9 @@ message("${BMagenta}[============ Entering Analysis Subdirectory ============]${
 set(GRAMS_TOF_ANALYSIS_FILES
 	src/TOF_ChannelConversion.cpp
 	src/TOF_TdcQdcCalibration.cpp
-	src/TOF_TreeData.cpp
+	src/TOF_TreeDataStg1.cpp
+	src/TOF_TreeDataStg2.cpp
+	src/TOF_ConvertStg1toStg2.cpp
 	src/TOF_Attributes.cpp
 	src/TOF_Fitting.cpp
 	src/TOF_ParameterScan.cpp
@@ -17,7 +19,9 @@ set(GRAMS_TOF_ANALYSIS_FILES
 set(GRAMS_TOF_ANALYSIS_HEADERS
   TOF_ChannelConversion.h
   TOF_TdcQdcCalibration.h
-  TOF_TreeData.h
+	TOF_TreeDataStg1.h
+	TOF_TreeDataStg2.h
+	TOF_ConvertStg1toStg2.h
   TOF_Constants.h
   TOF_Struct.h
   TOF_Attributes.h

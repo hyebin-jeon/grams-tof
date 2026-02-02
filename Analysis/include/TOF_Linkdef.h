@@ -4,7 +4,9 @@
 #pragma link C++ nestedtypedefs;
 #pragma link C++ class TOF_ChannelConversion+;
 #pragma link C++ class TOF_TdcQdcCalibration+;
-#pragma link C++ class TOF_TreeData+;
+#pragma link C++ class TOF_TreeDataStg1+;
+#pragma link C++ class TOF_TreeDataStg2+;
+#pragma link C++ class TOF_ConvertStg1toStg2+;
 #pragma link C++ class TOF_Struct+;
 #pragma link C++ class TOF_Attributes+;
 #pragma link C++ class TOF_Fitting+;

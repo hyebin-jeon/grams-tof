@@ -9,215 +9,51 @@ void TOF_CoincidenceEvents::setActiveChannels( std::vector<uint32_t> chanList )
 	fActiveChannelList.clear();
 
 	if( chanList.size() == 0 ) {
-		std::cout<< "TOF_QdcCalibMethod::setActiveChannels(). A given channel list is empty." << std::endl;
+		std::cout<< "[WARN] TOF_CoincidenceEvents: Empty Active Channel List" << std::endl;
 	}
 
 	std::sort( chanList.begin(), chanList.end() );
 
 	fActiveChannelList = chanList;
 
-	//for( auto chan: fActiveChannelList )
-	//	std::cout << Form("[TOF_CoincidenceEvents::setActiveChannels] active channel: %03d", chan) << std::endl;
-
 	return;
 }
 
-int TOF_CoincidenceEvents::setTreeData( TOF_TreeData* tr )
+int TOF_CoincidenceEvents::setInputPathStg2( const char* fnameStg2 )
 {
-	if( !tr ) {
-		std::cout << "[ERR] TOF_CoincidenceEvents::setTreeDat( TOF_TreeData* tr ), Given 'tr' NOT FOUND" << std::endl;
-		return -1;
-	}
-	tr->SetBranchStatus("*",1);
+	//if( !tr ) {
+	//	std::cout << "[ERR] TOF_CoincidenceEvents::setTreeData( TOF_TreeDataStg2* tr ), Given 'tr' NOT FOUND" << std::endl;
+	//	return -1;
+	//}
 
-	fTree= tr;
-	fTree->setBranchAddress();
+	fUseStg2 = true;
 
-	return 1;
+	fStg2Good = fStg2->setInputPath( fnameStg2 );
+	return fStg2Good;
 }
-
-std::vector<std::vector<TOF_CoincidenceChannelInfo>> TOF_CoincidenceEvents::getCoincidenceEvents()
-{
-	if( !fTree ) {
-		std::cout << "[ERR] TOF_QdcCalibMethod::getCoincidenceEvents(). fTree is NULL. Exit." << std::endl;
-		return vTree;
-	}
-
-	if( fTree->GetEntries() == 0 ) {
-		std::cout << "[ERR] TOF_QdcCalibMethod::getCoincidenceEvents(). fTree's entries = 0. Exit." << std::endl;
-		return vTree;
-	}
-	fTree->setBranchAddress(); // duplicate
-
-	vTree.clear();
-
-	//std::cout << "ok1" << std::endl;
-
-	std::cout << "ok1.2" << std::endl;
-	std::cout << "Address fTree: " << fTree << std::endl;
-
-	fTree->GetEntry(0);
-	long long frameID0= fTree->getFrameID(); 
-	long long lastTime= CLOCKS_IN_A_FRAME * frameID0 + fTree->getTCoarse(); 	
-	long long currTime= -1; // 64-bit signed int
-
-	TOF_CoincidenceChannelInfo channelInfo{};
-	TOF_CoincidenceChannelInfo channelBrElement{};
-	std::map< uint32_t, TOF_CoincidenceChannelInfo> vChannelData;
-	std::map< uint32_t, bool > vHitChannel;
-
-	const int chanSize = fActiveChannelList.size();
-	
-	std::cout << "ok2. fTree->GetEntries()= " << fTree->GetEntries() << std::endl;
-	//fTree->Print();
-	  
-	std::vector<TOF_CoincidenceChannelInfo> vBranchTemp;
-	vBranchTemp.clear();
-
-	for( int i=0; i<fTree->GetEntries(); i++ )
-	{
-		fTree->GetEntry(i);
-
-		auto frameID      = fTree->getFrameID();
-		auto tCoarse      = fTree->getTCoarse();
-		auto absChannelID = fTree->getChannelID(); // absolute channel ID
-
-		channelInfo.frameID   = frameID;
-		channelInfo.channelID = absChannelID;
-		channelInfo.tacID   = fTree->getTacID();
-		channelInfo.tCoarse = fTree->getTCoarse();
-		channelInfo.eCoarse = fTree->getECoarse();
-		channelInfo.tFine   = fTree->getTFine()  ;
-		channelInfo.eFine   = fTree->getEFine()  ;
-
-		long long time_trigCh;
-		if( absChannelID == fTrigChannelID ) time_trigCh = CLOCKS_IN_A_FRAME * frameID + tCoarse;
-
-		/// current time in clock
-		currTime = CLOCKS_IN_A_FRAME * frameID + tCoarse;
-		
-			
-		/// coincidence events within 'coincidenceT' clocks
-		if( fabs(currTime - lastTime) > fCoinTimeWindow) 
-		{
-			vChannelData.clear();
-			vHitChannel.clear();
-		}
-
-		for( auto activeChanID: fActiveChannelList )
-		{
-		  if( absChannelID == activeChanID )
-		  {
-				vHitChannel [absChannelID] = true;
-		    vChannelData[absChannelID] = channelInfo;
-			}
-		}
-
-		if( vChannelData.size() == 1 ) lastTime = currTime;
-		
-		bool good=1;
-		for( auto activeChanID: fActiveChannelList )
-		{
-			good &= vHitChannel[ activeChanID ];
-		}
-
-		if( i==0 )
-		std::cout << Form("[%03d] good: %d, currTime: %10lld, frameID= %10lld, tCoarse= %10hu, tFine= %10hu, channelID= %3u", i, good, currTime, frameID, channelInfo.tCoarse, channelInfo.tFine, channelInfo.channelID ) << std::endl;
-
-		if( vChannelData.size() == fActiveChannelList.size() && good )
-		{
-			vBranchTemp.clear();
-
-			//for( const auto [chan, chanData]: vChannelData )
-				//std::cout << Form("coincidence channels: %03d, idx = %03d", chanData.channelID, chan ) << std::endl;
-
-		  for( auto activeChanID: fActiveChannelList )
-			{
-				auto hit_channelID = activeChanID;
-		    auto hit_frameID   = vChannelData[activeChanID].frameID;
-		    auto hit_tacID     = vChannelData[activeChanID].tacID  ;
-		    auto hit_tCoarse   = vChannelData[activeChanID].tCoarse;
-		    auto hit_eCoarse   = vChannelData[activeChanID].eCoarse;
-		    auto hit_tFine     = vChannelData[activeChanID].tFine  ;
-		    auto hit_eFine     = vChannelData[activeChanID].eFine  ;
-
-				//std::cout << Form("[%03d] [coincidence] channelID: %03d, frameID= %10lld, tacID= %d, tCoarse= %10hu, tFine= %10hu, eCoarse= %10hu, eFine= %10hu,", i, hit_channelID, hit_frameID, hit_tacID, hit_tCoarse, hit_tFine, hit_eCoarse, hit_eFine ) << std::endl;
-
-				auto hit_timeBegin = TOF_TdcQdcCalibration::getInstance()->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
-				//auto hit_timeBegin = theCalib->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
-				
-				//std::cout << Form("[%03d] [coincidence] channelID: %03d, t_begin: %8.2f", i, hit_channelID, hit_timeBegin ) << std::endl;
-
-				//auto ecoarse = channelBrElement.eCoarse;
-				auto ecoarse = hit_eCoarse;
-	      if((hit_eCoarse - hit_tCoarse) < -256) ecoarse += 1024;
-				auto hit_timeEnd = double((frameID*1024+ ecoarse));
-				
-				//std::cout << Form("[%03d] [coincidence] channelID: %03d, t_begin: %8.2f, t_end: %8.2f", i, hit_channelID, hit_timeBegin, hit_timeEnd ) << std::endl;
-
-				double hit_qdc_cal = 0;
-				if( fQdcCalibMethod == TOF_QdcCalibMethod::fGetEnergy )
-					hit_qdc_cal = TOF_TdcQdcCalibration::getInstance()->getEnergy( hit_channelID, hit_tacID, hit_frameID, hit_eCoarse, hit_eFine, hit_timeBegin  );
-					//hit_qdc_cal = theCalib->getEnergy( hit_channelID, hit_tacID, hit_frameID, hit_eCoarse, hit_eFine, hit_timeBegin  );
-				else if( fQdcCalibMethod == TOF_QdcCalibMethod::fLinear ) 
-					hit_qdc_cal = 0; ////////////////////////////////
-				else if( fQdcCalibMethod == TOF_QdcCalibMethod::fTiming ) 
-					hit_qdc_cal =	TOF_TdcQdcCalibration::getInstance()->getCalibratedQDC( hit_channelID, hit_tacID, hit_frameID, hit_eCoarse, hit_eFine, hit_tCoarse, hit_timeBegin  );
-					//hit_qdc_cal =	theCalib->getCalibratedQDC( hit_channelID, hit_tacID, hit_frameID, hit_eCoarse, hit_eFine, hit_tCoarse, hit_timeBegin  );
-				else hit_qdc_cal = 0;
-				
-				channelBrElement.channelID = hit_channelID;
-		    channelBrElement.frameID   = hit_frameID  ;
-		    channelBrElement.tacID     = hit_tacID    ;
-		    channelBrElement.tCoarse   = hit_tCoarse  ;
-		    channelBrElement.eCoarse   = hit_eCoarse  ;
-		    channelBrElement.tFine     = hit_tFine    ;
-		    channelBrElement.eFine     = hit_eFine    ;
-				channelBrElement.timeBegin = hit_timeBegin;
-				channelBrElement.timeEnd   = hit_timeEnd  ;
-				channelBrElement.qdc_cal   = hit_qdc_cal  ;
-
-				vBranchTemp.push_back( channelBrElement );
-			}
-
-			//fTreeCoin->Fill();
-			vTree.push_back( vBranchTemp );
-		}
-	}
-
-	//fTreeCoin->Print();
-	std::cout << "ok3. vTree.size() " << vTree.size() << std::endl;
-
-	std::cout << "[TOF_CoincidenceEvents::getCoincidenceEvents] Completed" << std::endl;
-
-	//return fTreeCoin;
-	return vTree;
-}
-
 
 TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 {
-	if( !fTree ) {
-		std::cout << "[ERR] TOF_QdcCalibMethod::getCoincidenceEvents(). fTree is NULL. Exit." << std::endl;
+
+	if( fStg2->getEntries() == 0 ) {
+		std::cout << "[ERR] Stg2 TTree entries = 0. Exit." << std::endl;
 		return nullptr;
 	}
-
-	if( fTree->GetEntries() == 0 ) {
-		std::cout << "[ERR] TOF_QdcCalibMethod::getCoincidenceEvents(). fTree's entries = 0. Exit." << std::endl;
-		return nullptr;
-	}
-
-	vBranch.clear();
-
+	
 
 	/// create fTreeCoin and do Branch()
 	fTreeCoin = new TTree( "tCoin", "tCoin" );
 	fTreeCoin->SetDirectory(0);
+	vBranch.clear();
 	auto br = fTreeCoin->Branch( "coinEvt", &vBranch, 64000, 0 );
+	
+	/// Stg2 input
+	fStg2->setBranchStatus("*",1);
+	fStg2->setBranchAddress();
+	fStg2->getEntry(0);
 
-	fTree->GetEntry(0);
-	long long frameID0= fTree->getFrameID(); 
-	long long lastTime= CLOCKS_IN_A_FRAME * frameID0 + fTree->getTCoarse(); 	
+	long long frameID0= fStg2->getFrameID(); 
+	long long lastTime= CLOCKS_IN_A_FRAME * frameID0 + fStg2->getTCoarse(); 	
 	long long currTime= -1; // 64-bit signed int
 
 	TOF_CoincidenceChannelInfo channelInfo{};
@@ -227,21 +63,32 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 
 	const int chanSize = fActiveChannelList.size();
 	
-	for( int i=0; i<fTree->GetEntries(); i++ )
+	for( int i=0; i< fStg2->getEntries(); i++ )
 	{
-		fTree->GetEntry(i);
+		fStg2->getEntry(i);
 
-		auto frameID      = fTree->getFrameID();
-		auto tCoarse      = fTree->getTCoarse();
-		auto absChannelID = fTree->getChannelID(); // absolute channel ID
+		if( fUseStg2 ) {
+		  auto ts_cpu = fStg2->getTimeStampCPU();
+		  auto ts_pps = fStg2->getTimeStampPPS();
+		  channelInfo.ts_cpu    = ts_cpu;
+		  channelInfo.ts_pps    = ts_pps;
+		}
+		else {
+		  channelInfo.ts_cpu    = TTimeStamp(0,0); // dummy
+		  channelInfo.ts_pps    = TTimeStamp(0,0); // dummy
+		}
+
+		auto frameID      = fStg2->getFrameID();
+		auto tCoarse      = fStg2->getTCoarse();
+		auto absChannelID = fStg2->getChannelID(); // absolute channel ID
 
 		channelInfo.frameID   = frameID;
 		channelInfo.channelID = absChannelID;
-		channelInfo.tacID   = fTree->getTacID();
-		channelInfo.tCoarse = fTree->getTCoarse();
-		channelInfo.eCoarse = fTree->getECoarse();
-		channelInfo.tFine   = fTree->getTFine()  ;
-		channelInfo.eFine   = fTree->getEFine()  ;
+		channelInfo.tacID   = fStg2->getTacID();
+		channelInfo.tCoarse = fStg2->getTCoarse();
+		channelInfo.eCoarse = fStg2->getECoarse();
+		channelInfo.tFine   = fStg2->getTFine()  ;
+		channelInfo.eFine   = fStg2->getEFine()  ;
 
 		long long time_trigCh;
 		if( absChannelID == fTrigChannelID ) time_trigCh = CLOCKS_IN_A_FRAME * frameID + tCoarse;
@@ -249,7 +96,6 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		/// current time in clock
 		currTime = CLOCKS_IN_A_FRAME * frameID + tCoarse;
 		
-			
 		/// coincidence events within 'coincidenceT' clocks
 		if( fabs(currTime - lastTime) > fCoinTimeWindow) 
 		{
@@ -273,17 +119,11 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		{
 			good &= vHitChannel[ activeChanID ];
 		}
-
-		if( i==0 )
-		std::cout << Form("[%03d] good: %d, currTime: %10lld, frameID= %10lld, tCoarse= %10hu, tFine= %10hu, channelID= %3u", i, good, currTime, frameID, channelInfo.tCoarse, channelInfo.tFine, channelInfo.channelID ) << std::endl;
 
 		if( vChannelData.size() == fActiveChannelList.size() && good )
 		{
 			vBranch.clear();
 
-			//for( const auto [chan, chanData]: vChannelData )
-				//std::cout << Form("coincidence channels: %03d, idx = %03d", chanData.channelID, chan ) << std::endl;
-
 		  for( auto activeChanID: fActiveChannelList )
 			{
 				auto hit_channelID = activeChanID;
@@ -293,15 +133,12 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		    auto hit_eCoarse   = vChannelData[activeChanID].eCoarse;
 		    auto hit_tFine     = vChannelData[activeChanID].tFine  ;
 		    auto hit_eFine     = vChannelData[activeChanID].eFine  ;
-
-				//std::cout << Form("[%03d] [coincidence] channelID: %03d, frameID= %10lld, tacID= %d, tCoarse= %10hu, tFine= %10hu, eCoarse= %10hu, eFine= %10hu,", i, hit_channelID, hit_frameID, hit_tacID, hit_tCoarse, hit_tFine, hit_eCoarse, hit_eFine ) << std::endl;
+				auto hit_ts_cpu    = vChannelData[activeChanID].ts_cpu ;    
+				auto hit_ts_pps    = vChannelData[activeChanID].ts_pps ;    
 
 				auto hit_timeBegin = TOF_TdcQdcCalibration::getInstance()->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
 				//auto hit_timeBegin = theCalib->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
 				
-				//std::cout << Form("[%03d] [coincidence] channelID: %03d, t_begin: %8.2f", i, hit_channelID, hit_timeBegin ) << std::endl;
-
-				//auto ecoarse = channelBrElement.eCoarse;
 				auto ecoarse = hit_eCoarse;
 	      if((hit_eCoarse - hit_tCoarse) < -256) ecoarse += 1024;
 				auto hit_timeEnd = double((frameID*1024+ ecoarse));
@@ -329,6 +166,8 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 				channelBrElement.timeBegin = hit_timeBegin;
 				channelBrElement.timeEnd   = hit_timeEnd  ;
 				channelBrElement.qdc_cal   = hit_qdc_cal  ;
+				channelBrElement.ts_cpu    = hit_ts_cpu   ;    
+				channelBrElement.ts_pps    = hit_ts_pps   ;    
 
 				vBranch.push_back( channelBrElement );
 			}
@@ -337,23 +176,21 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		}
 	}
 
-	std::cout << "[TOF_CoincidenceEvents::getCoincidenceEvents] Completed" << std::endl;
+	fTreeCoin->Print();
+
+	//std::cout << "[TOF_CoincidenceEvents::getCoincidenceEvents] Completed" << std::endl;
 
 	return fTreeCoin;
 }
 
 void TOF_CoincidenceEvents::reset()
 {
-  if(fTree) 
+  if(fStg2) 
 	{
-    // fTree는 CloneTree()로 생성된 객체이므로 삭제해야 함
-    fTree->ResetBranchAddresses(); // 이미 Clone된 객체에선 필요 없을 수 있음
-    delete fTree;
-    fTree=nullptr;
-		//std::cout << "[TOF_CoincidenceEvents::reset()] fTree is reset" << std::endl;
+    fStg2->resetBranchAddresses();
+    delete fStg2;
+    fStg2=nullptr;
   }
-  
-  vTree.clear();
 
 	delete fHisto_dT;
 	delete fHisto_NbOfEvt;
@@ -362,13 +199,12 @@ void TOF_CoincidenceEvents::reset()
   fHisto_NbOfEvt = nullptr;
   fHisto_TvsQcal = nullptr;		
 
-	std::cout << "[TOF_CoincidenceEvents::reset()] Reset Completed" << std::endl;
+	//std::cout << "[TOF_CoincidenceEvents::reset()] Reset Completed" << std::endl;
 };
 
 
 TOF_CoincidenceEvents::~TOF_CoincidenceEvents()
 {
-	std::cout << "[TOF_CoincidenceEvents] destructor called" << std::endl;
 	reset();
 	if( this==theCoin ) theCoin=nullptr;
 }
@@ -376,20 +212,22 @@ TOF_CoincidenceEvents::~TOF_CoincidenceEvents()
 void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 {
 	if( !fTreeCoin ){
-		std::cerr << "[TOF_CoincidenceEvents] fTreeCoin does NOT exist." << std::endl;
+		std::cerr << "[ERR] TOF_CoincidenceEvents: fTreeCoin does NOT exist." << std::endl;
 		return;
 	}
 
 	if( fTreeCoin->GetEntries()==0 )
 	{
-		std::cerr << "[TOF_CoincidenceEvents] fTreeCoin has 0 entries." << std::endl;
+		std::cerr << "[WARN] TOF_CoincidenceEvents: fTreeCoin has 0 entries." << std::endl;
 		return;
 	}
 
 	if( fActiveChannelList.size()!=4 ) {
-		std::cerr << "The number of active channels is not 4. Cannot proceed..Sorry, we are working on developing.." << std::endl;
+		std::cerr << "[ERR] The number of active channels is not 4. Cannot proceed..Sorry, we are working on developing.." << std::endl;
 		return;
 	}
+
+  auto theAttrib   = TOF_Attributes::getInstance();
 
 	uint32_t channel0 = fActiveChannelList.at(0);
 
@@ -411,7 +249,6 @@ void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 
 	  std::sort( vBranchA->begin(), vBranchA->end(), [](const TOF_CoincidenceChannelInfo& a, const TOF_CoincidenceChannelInfo& b) { return a.channelID < b.channelID; });
 
-		//std::cout << "Number of elements in a branch: " << vBranchA.size() << std::endl;
 	  for( auto ele: *vBranchA ) 
 		{ 
 	    auto frameID  = ele.frameID  ;
@@ -456,11 +293,7 @@ void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 		fHisto_TvsQcal->Fill( tdiff0, qCratio0 );
 		fHisto_TvsQcal->Fill( tdiff1, qCratio1 );
 
-		//if( i>100) break;
 	}
-
-  auto theAttrib   = TOF_Attributes::getInstance();
-
 
 
 	gStyle->SetOptStat(111111);
