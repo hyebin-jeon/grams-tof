@@ -8,6 +8,8 @@ message("${BMagenta}[============ Entering TOF Scripts C Subdirectory ==========
 set(SOURCES
     src/process_convertStg1ToStg2_impl.cpp
     src/process_tofCoinEvtQA_impl.cpp
+    src/process_darkCount_impl.cpp
+    src/process_discSetting_impl.cpp
 )
 
 add_library(GramsTofAnalysisScriptsCLib SHARED ${SOURCES})
@@ -27,9 +29,19 @@ target_link_libraries(process_tofCoinEvtQA PRIVATE GramsTofAnalysisScriptsCLib)
 add_executable(process_convertStg1ToStg2 tools/process_convertStg1ToStg2.cpp)
 target_link_libraries(process_convertStg1ToStg2 PRIVATE GramsTofAnalysisScriptsCLib)
 
+# darkCount
+add_executable(process_darkCount tools/process_darkCount.cpp)
+target_link_libraries(process_darkCount PRIVATE GramsTofAnalysisScriptsCLib)
+
+# darkCount
+add_executable(process_discSetting tools/process_discSetting.cpp)
+target_link_libraries(process_discSetting PRIVATE GramsTofAnalysisScriptsCLib)
+
 install(TARGETS GramsTofAnalysisScriptsCLib
                 process_tofCoinEvtQA
                 process_convertStg1ToStg2
+                process_darkCount
+                process_discSetting
         EXPORT GramsTofLibraryTargets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
