@@ -1,4 +1,3 @@
-//#include "process_tofCoinEvtQA.h"
 #include "process_convertStg1ToStg2.h"
 
 #include <TFile.h>
