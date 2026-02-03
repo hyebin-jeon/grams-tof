@@ -46,7 +46,7 @@ public:
                                       const std::string& outputBase,
                                       const std::string& tdcCalibPath = "",
                                       const std::string& qdcCalibPath = "",
-																			const int          febD_connID
+																			const int          febD_connID = -1
 																			);
 
 private:

@@ -476,7 +476,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting stg1 to stg2...");
             return analyzer_.runPetsysConvertStg1ToStg2(
 								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
-+               config.getSTG2Dir()
+                config.getSTG2Dir()
             );
         });
     };
