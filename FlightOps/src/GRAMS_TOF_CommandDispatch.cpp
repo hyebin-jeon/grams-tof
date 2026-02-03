@@ -475,8 +475,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting stg1 to stg2...");
             return analyzer_.runPetsysConvertStg1ToStg2(
-                config.makeFilePathWithTimestamp(config.getSTG1Dir(), "run", timestampStr),
-                config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr)
+								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
+                config.getSTG2Dir()
             );
         });
     };
@@ -488,10 +488,10 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
             return analyzer_.runPetsysProcessTofCoinEvtQA(
                 config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
-                config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
-                //isQdcMode, 
+								config.getSTG2Dir(),
                 config.getString("main", "tdc_calibration_table"),
-                config.getString("main", "qdc_calibration_table")
+                config.getString("main", "qdc_calibration_table"),
+                {argv.size() > 0 ? static_cast<int>(argv[0]) : -1}
             );
         });
     };

@@ -45,7 +45,9 @@ public:
     bool runPetsysProcessTofCoinEvtQA(const std::string& inputFile,
                                       const std::string& outputBase,
                                       const std::string& tdcCalibPath = "",
-                                      const std::string& qdcCalibPath = "");
+                                      const std::string& qdcCalibPath = "",
+																			const int          febD_connID = -1
+																			);
 
 private:
     template<typename Func, typename... Args>
