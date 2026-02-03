@@ -58,7 +58,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
                     Logger::instance().warn("[STOP] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
                     kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, -1); 
+                    sendStatusCallback(b_code, 2); 
                 }
                 activeBackgroundPIDs_.clear();
             }
@@ -105,7 +105,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
                     Logger::instance().warn("[RESET] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
                     kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, -1); 
+                    sendStatusCallback(b_code, 2); 
                 }
                 activeBackgroundPIDs_.clear();
             }
@@ -616,13 +616,13 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
     return false;
 }
 
-void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, int32_t status) {
+void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, uint32_t status) {
     GRAMS_TOF_CommandCodec::Packet cb;
     cb.code = static_cast<uint16_t>(pgrams::communication::CommunicationCodes::TOF_Callback);
     
     // Add the command code and the status to the argument vector
-    cb.argv.push_back(static_cast<int32_t>(code)); 
-    cb.argv.push_back(status); // 0 = Success, 1 = Fail, -1 = Interrupted
+    cb.argv.push_back(static_cast<uint32_t>(code)); 
+    cb.argv.push_back(status); // 0 = Success, 1 = Fail, 2 = Interrupted
     cb.argc = cb.argv.size();
    
     const int max_retries = 10;

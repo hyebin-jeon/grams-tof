@@ -53,7 +53,7 @@ private:
     void runMonitorThread();
 
     // Send Callback
-    void sendStatusCallback(TOFCommandCode code, int32_t status);
+    void sendStatusCallback(TOFCommandCode code, uint32_t status);
     bool executeSimpleCommand(TOFCommandCode code, std::function<bool()> func);
 
     // Thread function to run DAQ
