@@ -525,6 +525,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return false; // signal failure
         }
     };
+
+    monitorRunning_ = true;
+    monitorThread_ = std::thread(&GRAMS_TOF_CommandDispatch::runMonitorThread, this);
 }
 
 GRAMS_TOF_CommandDispatch::~GRAMS_TOF_CommandDispatch() {
@@ -631,7 +634,7 @@ void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, uint32_t
     for (int i = 0; i < max_retries; ++i) {
         if (eventClient_.sendPacket(cb)) {
             if (i >= 0) {
-                Logger::instance().debug("[Dispatch] Callback for 0x{:04X} sent successfully after {} retries.", 
+                Logger::instance().debug("[Dispatch] CALLBACK for 0x{:04X} sent successfully after {} retries.", 
                                           static_cast<uint16_t>(code), i+1);
             }
             return; // Success
@@ -657,17 +660,26 @@ bool GRAMS_TOF_CommandDispatch::executeSimpleCommand(TOFCommandCode code, std::f
 
 void GRAMS_TOF_CommandDispatch::runMonitorThread() {
     while (monitorRunning_) {
-        std::lock_guard<std::mutex> lock(pidMutex_);
-        for (auto it = activeBackgroundPIDs_.begin(); it != activeBackgroundPIDs_.end(); ) {
-            int status;
-            pid_t pid = it->first;
-            TOFCommandCode commandCode = it->second;
+        {
+            std::lock_guard<std::mutex> lock(pidMutex_);
+            for (auto it = activeBackgroundPIDs_.begin(); it != activeBackgroundPIDs_.end(); ) {
+                int status;
+                pid_t pid = it->first;
+                TOFCommandCode commandCode = it->second;
 
-            if (waitpid(pid, &status, WNOHANG) > 0) { 
-                sendStatusCallback(commandCode, 0);
-                it = activeBackgroundPIDs_.erase(it);
-            } else {
-                ++it;
+                pid_t result = waitpid(pid, &status, WNOHANG);
+
+                if (result > 0) {
+                    bool success = WIFEXITED(status) && (WEXITSTATUS(status) == 0);
+                    Logger::instance().info("[Dispatch] CALLBACK of background process {} for command 0x{:04X} finished with status {}", 
+                                             pid, static_cast<int>(commandCode), WEXITSTATUS(status));
+                    sendStatusCallback(commandCode, success ? 0 : 1);
+                    it = activeBackgroundPIDs_.erase(it);
+                } else if (result == -1) {
+                    it = activeBackgroundPIDs_.erase(it);
+                } else {
+                    it++; 
+                }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
