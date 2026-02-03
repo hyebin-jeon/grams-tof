@@ -630,9 +630,9 @@ void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, int32_t 
 
     for (int i = 0; i < max_retries; ++i) {
         if (eventClient_.sendPacket(cb)) {
-            if (i > 0) {
-                Logger::instance().info("[Dispatch] Callback for 0x{:04X} sent successfully after {} retries.", 
-                                        static_cast<uint16_t>(code), i);
+            if (i >= 0) {
+                Logger::instance().debug("[Dispatch] Callback for 0x{:04X} sent successfully after {} retries.", 
+                                          static_cast<uint16_t>(code), i+1);
             }
             return; // Success
         }
