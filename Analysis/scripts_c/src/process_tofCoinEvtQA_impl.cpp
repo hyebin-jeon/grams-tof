@@ -27,8 +27,10 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
                             const std::string& outputBase, 
                             const std::string& tdcCalibPath,
                             const std::string& qdcCalibPath,
-														const int febD_connID)
+														const int febD_connID_)
 {
+	int febD_connID_default = 1;
+	int febD_connID = febD_connID_<0? febD_connID_default : febD_connID_;
 
   /// Class setup
   TOF_CoincidenceEvents* theCoin = new TOF_CoincidenceEvents(); //::getInstance();

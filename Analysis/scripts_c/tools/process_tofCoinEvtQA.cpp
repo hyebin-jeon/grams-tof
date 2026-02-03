@@ -34,9 +34,6 @@ int main(int argc, char** argv) {
         }
     }
 
-		//if( febD_connID<0 ) febD_connID = 4;
-		if( febD_connID<0 ) febD_connID = 1;
-
     if (inputFile.empty() ) {
         std::cerr << "[ERR] Input is required.\n";
         return 1;
