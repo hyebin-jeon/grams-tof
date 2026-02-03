@@ -611,7 +611,7 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
         }
         
         // Ignore child signals to prevent zombies
-        signal(SIGCHLD, SIG_IGN); 
+        //signal(SIGCHLD, SIG_IGN); 
         
         Logger::instance().info("[Dispatch] Started {} task (PID: {})", interpreter, pid);
         return true;
