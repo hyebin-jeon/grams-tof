@@ -491,7 +491,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
                 //isQdcMode, 
                 config.getString("main", "tdc_calibration_table"),
-                config.getString("main", "qdc_calibration_table")
+                config.getString("main", "qdc_calibration_table"),
+                {argv.size() > 0 ? static_cast<int>(argv[0]) : -1}
             );
         });
     };
