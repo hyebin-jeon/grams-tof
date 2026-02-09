@@ -119,5 +119,11 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	fStg2->getTTree()->Write();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
 	fStg2->closeTFile();
+ 
+  delete fStg1; 
+  fStg1 = nullptr;
+    
+  delete fStg2; 
+  fStg2 = nullptr;
 }
 
