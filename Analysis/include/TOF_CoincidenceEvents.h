@@ -6,8 +6,8 @@
 #include "TTree.h"
 #include "TFile.h"
 #include "TSystem.h"
-#include "TH1D.h"
-#include "TH2D.h"
+#include "TH1F.h"
+#include "TH2F.h"
 #include "TCanvas.h"
 #include "TStyle.h"
 #include "TOF_TdcQdcCalibration.h"
@@ -86,15 +86,15 @@ class TOF_CoincidenceEvents : public TObject
 		const double fTdcClk = 1./fTdcFreq; // sec
 		const double fTdcClkNs = fTdcClk/pow(10,-9); // ns
 
-		TH1D* fHisto_dT{nullptr}; // time resolution (ns)
-		TH1D* fHisto_NbOfEvt{nullptr};
-	  TH2D* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
+		TH1F* fHisto_dT{nullptr}; // time resolution (ns)
+		TH1F* fHisto_NbOfEvt{nullptr};
+	  TH2F* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
 	
 	public:
 		void generateHistoForQA(const char* pdfName);
-		TH1D* getHisto_TimeResol()       { return fHisto_dT     ; };
-		TH1D* getHisto_ChannelVsNevents(){ return fHisto_NbOfEvt; };
-		TH2D* getHisto_TdcVsQcalib()     { return fHisto_TvsQcal; };
+		TH1F* getHisto_TimeResol()       { return fHisto_dT     ; };
+		TH1F* getHisto_ChannelVsNevents(){ return fHisto_NbOfEvt; };
+		TH2F* getHisto_TdcVsQcalib()     { return fHisto_TvsQcal; };
 
 
 	ClassDef(TOF_CoincidenceEvents, 1)
