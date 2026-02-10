@@ -231,9 +231,9 @@ void TOF_CoincidenceEvents::generateHistoForQA(const char* pdfName)
 
 	uint32_t channel0 = fActiveChannelList.at(0);
 
-	fHisto_dT = new TH1D("h_dT", "Time Diff between Paddles;Asym. time ratio (ns);", 300, -15, 15 );
-	fHisto_NbOfEvt = new TH1D("hNevt", ";Channel;Number of Coincidence events", 128*8, 0, 128*8);
-	fHisto_TvsQcal = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
+	fHisto_dT = new TH1F("h_dT", "Time Diff between Paddles;Asym. time ratio (ns);", 300, -15, 15 );
+	fHisto_NbOfEvt = new TH1F("hNevt", ";Channel;Number of Coincidence events", 128*8, 0, 128*8);
+	fHisto_TvsQcal = new TH2F("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
 		
 	double ttimeBegin[4];
 	double qqdc[4];

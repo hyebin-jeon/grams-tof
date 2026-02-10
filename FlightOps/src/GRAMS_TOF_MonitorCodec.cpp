@@ -1,54 +1,57 @@
 #include "GRAMS_TOF_MonitorCodec.h"
-#include <cstring> 
+#include <cstring>
 
-std::vector<uint8_t> GRAMS_TOF_MonitorCodec::serialize(const Packet& packet) {
-    // 1. Calculate the size of the header (4 fields * 4 bytes = 16 bytes)
-    const size_t headerSize = 4 * sizeof(uint32_t);
-    // 2. Calculate size of the data payload
-    const size_t dataSize = packet.argv.size() * sizeof(uint32_t);
+GRAMS_TOF_CommandCodec::Packet GRAMS_TOF_MonitorCodec::encode(const MonitorData& data) {
+    GRAMS_TOF_CommandCodec::Packet packet;
+    packet.code = static_cast<uint16_t>(TOFCommandCode::MONITOR_DATA_STREAM); 
+
+    packet.argv.push_back(data.run_number); // [0]
+
+    // Pack 16-byte hname into 4 uint32_t slots [1-4]
+    uint32_t name_buf[4];
+    std::memcpy(name_buf, data.hname, 16);
+    for(int i=0; i<4; ++i) packet.argv.push_back(name_buf[i]);
+
+    packet.argv.push_back(data.hist_type);  // [5]
+    packet.argv.push_back(data.n_bins_x);   // [6]
     
-    std::vector<uint8_t> buffer(headerSize + dataSize);
+    uint32_t u_xmin, u_xmax;
+    std::memcpy(&u_xmin, &data.x_min, 4);
+    std::memcpy(&u_xmax, &data.x_max, 4);
+    packet.argv.push_back(u_xmin);          // [7]
+    packet.argv.push_back(u_xmax);          // [8]
 
-    // 3. Serialize Header fields
-    uint32_t header[4] = {
-        packet.run_number,
-        packet.hist_type,
-        packet.n_bins_x,
-        packet.n_bins_y
-    };
-    std::memcpy(buffer.data(), header, headerSize);
+    packet.argv.push_back(data.n_bins_y);   // [9]
+    
+    uint32_t u_ymin, u_ymax;
+    std::memcpy(&u_ymin, &data.y_min, 4);
+    std::memcpy(&u_ymax, &data.y_max, 4);
+    packet.argv.push_back(u_ymin);          // [10]
+    packet.argv.push_back(u_ymax);          // [11]
 
-    // 4. Serialize Data (argv)
-    if (dataSize > 0) {
-        std::memcpy(buffer.data() + headerSize, packet.argv.data(), dataSize);
-    }
-
-    return buffer;
+    packet.argv.insert(packet.argv.end(), data.bins.begin(), data.bins.end());
+    packet.argc = static_cast<uint16_t>(packet.argv.size());
+    return packet;
 }
 
-bool GRAMS_TOF_MonitorCodec::parse(const std::vector<uint8_t>& data, Packet& outPacket) {
-    const size_t headerSize = 4 * sizeof(uint32_t);
+bool GRAMS_TOF_MonitorCodec::decode(const GRAMS_TOF_CommandCodec::Packet& packet, MonitorData& outData) {
+    // Minimum 12 words for the header
+    if (packet.argv.size() < 12) return false;
+
+    outData.run_number = packet.argv[0];
+    std::memcpy(outData.hname, &packet.argv[1], 16);
     
-    // Basic validation: must at least contain the header
-    if (data.size() < headerSize) {
-        return false;
-    }
-
-    // 1. Parse Header
-    const uint32_t* headerPtr = reinterpret_cast<const uint32_t*>(data.data());
-    outPacket.run_number = headerPtr[0];
-    outPacket.hist_type  = headerPtr[1];
-    outPacket.n_bins_x   = headerPtr[2];
-    outPacket.n_bins_y   = headerPtr[3];
-
-    // 2. Parse Data (remaining bytes)
-    size_t dataSizeBytes = data.size() - headerSize;
-    size_t numElements = dataSizeBytes / sizeof(uint32_t);
+    outData.hist_type  = packet.argv[5];
+    outData.n_bins_x   = packet.argv[6];
     
-    outPacket.argv.resize(numElements);
-    if (numElements > 0) {
-        std::memcpy(outPacket.argv.data(), data.data() + headerSize, dataSizeBytes);
-    }
+    std::memcpy(&outData.x_min, &packet.argv[7], 4);
+    std::memcpy(&outData.x_max, &packet.argv[8], 4);
 
+    outData.n_bins_y   = packet.argv[9];
+    std::memcpy(&outData.y_min, &packet.argv[10], 4);
+    std::memcpy(&outData.y_max, &packet.argv[11], 4);
+
+    outData.bins.assign(packet.argv.begin() + 12, packet.argv.end());
     return true;
 }
+

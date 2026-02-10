@@ -21,7 +21,8 @@
 #include <algorithm> // For std::min
 
 // Define the maximum expected argument count to prevent buffer overflow attacks
-static constexpr uint16_t MAX_ARGC = 32; 
+//static constexpr uint16_t MAX_ARGC = 32; 
+static constexpr uint16_t MAX_ARGC = 0xFFFF; 
 static constexpr size_t MIN_PACKET_SIZE = 14;
 
 GRAMS_TOF_CommandClient::GRAMS_TOF_CommandClient(const std::string& hub_ip, int port, CommandHandler handler)
