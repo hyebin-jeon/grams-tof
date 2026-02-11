@@ -69,7 +69,8 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
     uint16_t code = read16(ptr + 4);
     uint16_t argc = read16(ptr + 6);
 
-    static constexpr uint16_t MAX_ARGC = 32; // choose appropriate value
+    //static constexpr uint16_t MAX_ARGC = 32;
+    static constexpr uint16_t MAX_ARGC = 0xFFFF;
 
     if (argc > MAX_ARGC) {
         Logger::instance().error("[Codec] Invalid argc {} > MAX_ARGC {}", argc, MAX_ARGC);

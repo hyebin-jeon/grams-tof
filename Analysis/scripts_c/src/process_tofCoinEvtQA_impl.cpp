@@ -26,16 +26,11 @@ using namespace std;
 bool runProcessTofCoinEvtQA(const std::string& inputFile, 
                             const std::string& outputBase, 
                             const std::string& tdcCalibPath,
-                            const std::string& qdcCalibPath)
+                            const std::string& qdcCalibPath,
+														const int febD_connID_)
 {
-  ////warm up
-  //gROOT->SetBatch(kTRUE);
-  //TF1 *f_warmup = new TF1("warmup", "gaus", 0, 1);
-  //delete f_warmup;
-  //TCanvas *c_warmup = new TCanvas("c_warmup", "warmup");
-  //c_warmup->Print("warmup_init.pdf"); 
-  //delete c_warmup;
-  //gSystem->Unlink("warmup_init.pdf"); // Remove the dummy file
+	int febD_connID_default = 1;
+	int febD_connID = febD_connID_<0? febD_connID_default : febD_connID_;
 
   /// Class setup
   TOF_CoincidenceEvents* theCoin = new TOF_CoincidenceEvents(); //::getInstance();
@@ -63,7 +58,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
   theCalib->readQdcCalib(qdcPath);
 
 	/// ROI channel list
-	uint8_t febD_connID = 4; // connector ID on FEB/D. range [1,8].
+	//uint8_t febD_connID = 4; // connector ID on FEB/D. range [1,8].
 	std::vector<uint8_t>  smaChannels = { 1, 2, 65, 66 }; // SMA connector IDs
 	std::vector<uint32_t> activeChannels;
 	for( auto chan: smaChannels )

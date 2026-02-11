@@ -58,7 +58,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
                     Logger::instance().warn("[STOP] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
                     kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, -1); 
+                    sendStatusCallback(b_code, 2); 
                 }
                 activeBackgroundPIDs_.clear();
             }
@@ -105,7 +105,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
                     Logger::instance().warn("[RESET] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
                     kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, -1); 
+                    sendStatusCallback(b_code, 2); 
                 }
                 activeBackgroundPIDs_.clear();
             }
@@ -469,18 +469,29 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
+    // RUN_CONVERT_STG1_TO_STG2
+    table_[TOFCommandCode::RUN_CONVERT_STG1_TO_STG2] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::RUN_CONVERT_STG1_TO_STG2, [&]() {
+            auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting stg1 to stg2...");
+            return analyzer_.runPetsysConvertStg1ToStg2(
+								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
+                config.getSTG2Dir()
+            );
+        });
+    };
+
     // RUN_PROCESS_TOF_COIN_EVT
     table_[TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA, [&]() {
-            auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
+            auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
-            int isQdcMode = argv.size() > 0 ? (argv[0] == 1) : 0;
             return analyzer_.runPetsysProcessTofCoinEvtQA(
-                config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
-                config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr),
-                //isQdcMode, 
+                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
+								config.getSTG2Dir(),
                 config.getString("main", "tdc_calibration_table"),
-                config.getString("main", "qdc_calibration_table")
+                config.getString("main", "qdc_calibration_table"),
+                {argv.size() > 0 ? static_cast<int>(argv[0]) : -1}
             );
         });
     };
@@ -514,6 +525,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return false; // signal failure
         }
     };
+
+    monitorRunning_ = true;
+    monitorThread_ = std::thread(&GRAMS_TOF_CommandDispatch::runMonitorThread, this);
 }
 
 GRAMS_TOF_CommandDispatch::~GRAMS_TOF_CommandDispatch() {
@@ -597,7 +611,7 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
         }
         
         // Ignore child signals to prevent zombies
-        signal(SIGCHLD, SIG_IGN); 
+        //signal(SIGCHLD, SIG_IGN); 
         
         Logger::instance().info("[Dispatch] Started {} task (PID: {})", interpreter, pid);
         return true;
@@ -605,13 +619,13 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
     return false;
 }
 
-void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, int32_t status) {
+void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, uint32_t status) {
     GRAMS_TOF_CommandCodec::Packet cb;
     cb.code = static_cast<uint16_t>(pgrams::communication::CommunicationCodes::TOF_Callback);
     
     // Add the command code and the status to the argument vector
-    cb.argv.push_back(static_cast<int32_t>(code)); 
-    cb.argv.push_back(status); // 0 = Success, 1 = Fail, -1 = Interrupted
+    cb.argv.push_back(static_cast<uint32_t>(code)); 
+    cb.argv.push_back(status); // 0 = Success, 1 = Fail, 2 = Interrupted
     cb.argc = cb.argv.size();
    
     const int max_retries = 10;
@@ -619,9 +633,9 @@ void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, int32_t 
 
     for (int i = 0; i < max_retries; ++i) {
         if (eventClient_.sendPacket(cb)) {
-            if (i > 0) {
-                Logger::instance().info("[Dispatch] Callback for 0x{:04X} sent successfully after {} retries.", 
-                                        static_cast<uint16_t>(code), i);
+            if (i >= 0) {
+                Logger::instance().debug("[Dispatch] CALLBACK for 0x{:04X} sent successfully after {} retries.", 
+                                          static_cast<uint16_t>(code), i+1);
             }
             return; // Success
         }
@@ -646,17 +660,26 @@ bool GRAMS_TOF_CommandDispatch::executeSimpleCommand(TOFCommandCode code, std::f
 
 void GRAMS_TOF_CommandDispatch::runMonitorThread() {
     while (monitorRunning_) {
-        std::lock_guard<std::mutex> lock(pidMutex_);
-        for (auto it = activeBackgroundPIDs_.begin(); it != activeBackgroundPIDs_.end(); ) {
-            int status;
-            pid_t pid = it->first;
-            TOFCommandCode commandCode = it->second;
+        {
+            std::lock_guard<std::mutex> lock(pidMutex_);
+            for (auto it = activeBackgroundPIDs_.begin(); it != activeBackgroundPIDs_.end(); ) {
+                int status;
+                pid_t pid = it->first;
+                TOFCommandCode commandCode = it->second;
 
-            if (waitpid(pid, &status, WNOHANG) > 0) { 
-                sendStatusCallback(commandCode, 0);
-                it = activeBackgroundPIDs_.erase(it);
-            } else {
-                ++it;
+                pid_t result = waitpid(pid, &status, WNOHANG);
+
+                if (result > 0) {
+                    bool success = WIFEXITED(status) && (WEXITSTATUS(status) == 0);
+                    Logger::instance().info("[Dispatch] CALLBACK of background process {} for command 0x{:04X} finished with status {}", 
+                                             pid, static_cast<int>(commandCode), WEXITSTATUS(status));
+                    sendStatusCallback(commandCode, success ? 0 : 1);
+                    it = activeBackgroundPIDs_.erase(it);
+                } else if (result == -1) {
+                    it = activeBackgroundPIDs_.erase(it);
+                } else {
+                    it++; 
+                }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

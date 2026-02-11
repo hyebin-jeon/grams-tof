@@ -27,7 +27,11 @@ enum class TOFCommandCode : uint16_t {
     RUN_PROCESS_QDC_CALIBRATION            = 0x5202,
     RUN_CONVERT_RAW_TO_RAW                 = 0x5203,
     RUN_CONVERT_RAW_TO_SINGLES             = 0x5204,
-    RUN_PROCESS_TOF_COIN_EVT_QA            = 0x5205,
+
+    RUN_CONVERT_STG1_TO_STG2               = 0x5300, //adding timestamp
+    RUN_PROCESS_TOF_COIN_EVT_QA            = 0x5301,
+
+    MONITOR_DATA_STREAM                    = 0x5400,
 
     ACK                                    = 0x5FFF,
     CALLBACK                               = 0x5FFE,
@@ -67,7 +71,11 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION:          return os << "RUN_PROCESS_QDC_CALIBRATION";
         case TOFCommandCode::RUN_CONVERT_RAW_TO_RAW:               return os << "RUN_CONVERT_RAW_TO_RAW";
         case TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES:           return os << "RUN_CONVERT_RAW_TO_SINGLES";
+
+        case TOFCommandCode::RUN_CONVERT_STG1_TO_STG2:             return os << "RUN_CONVERT_STG1_TO_STG2";
         case TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA:          return os << "RUN_PROCESS_TOF_COIN_EVT_QA";
+        
+        case TOFCommandCode::MONITOR_DATA_STREAM:                  return os << "MONITOR_DATA_STREAM";
 
         case TOFCommandCode::ACK:                                  return os << "ACK";
         case TOFCommandCode::CALLBACK:                             return os << "CALLBACK";
@@ -108,7 +116,11 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION:          return CommunicationCodes::TOF_Run_Process_QDC_Calibration;
         case TOFCommandCode::RUN_CONVERT_RAW_TO_RAW:               return CommunicationCodes::TOF_Run_Convert_Raw_To_Raw;
         case TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES:           return CommunicationCodes::TOF_Run_Convert_Raw_To_Singles;
+
+        case TOFCommandCode::RUN_CONVERT_STG1_TO_STG2:             return CommunicationCodes::TOF_Run_Convert_Stg1_To_Stg2;
         case TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA:          return CommunicationCodes::TOF_Run_Process_TOF_Coin_Evt_QA;
+
+        case TOFCommandCode::MONITOR_DATA_STREAM:                  return CommunicationCodes::TOF_Monitor_Data_Stream;
 
         case TOFCommandCode::ACK:                                  return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                             return CommunicationCodes::TOF_Callback;
@@ -145,7 +157,11 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Run_Process_QDC_Calibration:          return TOFCommandCode::RUN_PROCESS_QDC_CALIBRATION;
         case CommunicationCodes::TOF_Run_Convert_Raw_To_Raw:               return TOFCommandCode::RUN_CONVERT_RAW_TO_RAW;
         case CommunicationCodes::TOF_Run_Convert_Raw_To_Singles:           return TOFCommandCode::RUN_CONVERT_RAW_TO_SINGLES;
+
+        case CommunicationCodes::TOF_Run_Convert_Stg1_To_Stg2:             return TOFCommandCode::RUN_CONVERT_STG1_TO_STG2;
         case CommunicationCodes::TOF_Run_Process_TOF_Coin_Evt_QA:          return TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA;
+
+        case CommunicationCodes::TOF_Monitor_Data_Stream:                  return TOFCommandCode::MONITOR_DATA_STREAM;
 
         case CommunicationCodes::TOF_ACK:                                  return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                             return TOFCommandCode::CALLBACK;
