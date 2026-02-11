@@ -1,6 +1,8 @@
 /// v2
-
 #pragma once
+
+#ifndef _TOF_COINCIDENCEEVENTS_H
+#define _TOF_COINCIDENCEEVENTS_H
 
 #include "TObject.h"
 #include "TTree.h"
@@ -35,61 +37,48 @@ class TOF_CoincidenceEvents : public TObject
   		return theCoin;
   	}
   
-  	//~TOF_CoincidenceEvents() = default;
   	~TOF_CoincidenceEvents();
 		
 		//TOF_TdcQdcCalibration* theCalib{nullptr};
 	
-		TOF_TreeDataStg2* fStg2 = new TOF_TreeDataStg2(); //{nullptr};
+		TOF_TreeDataStg2* fStg2{nullptr};
 
 	private:
-		int fStg2Good{-1};
-
-		//TTree* fTreeStg2{nullptr};
+		void setClassStg2();
 		TTree* fTreeCoin{nullptr};
+		std::vector< uint32_t > fActiveChannelList;
 	  std::vector<TOF_CoincidenceChannelInfo> vBranch;
-		//std::vector<std::vector<TOF_CoincidenceChannelInfo>> vTree;
 
 	private:
-		bool fUseStg1{false};
-		bool fUseStg2{false};
-		TOF_TreeDataStg2* fTree{nullptr};
-		TOF_TreeDataStg1* fTreeStg1{nullptr};
 		uint32_t fTrigChannelID{0}; // absolute channel ID of a trigger channelj
 		double   fCoinTimeWindow{1};
-		TOF_QdcCalibMethod fQdcCalibMethod{ TOF_QdcCalibMethod::fGetEnergy };
-
 	  std::map< uint32_t, TOF_CoincidenceChannelInfo> fChannelDataList; // {nullptr};
-		std::vector< uint32_t > fActiveChannelList;
 
 	public:
 		int  setInputPathStg2( const char* fnameStg2 );
-		int  setTreeData( TOF_TreeDataStg1* tr );// { fTree = tr; };
-		int  setTreeData( TOF_TreeDataStg2* tr );// { fTree = tr; };
 		void setTriggerChannel( uint32_t trigCh ) { fTrigChannelID = trigCh; }; // coincidence evt using trigger channel is not prepared yet
 		void setActiveChannels( std::vector<uint32_t> chanList );
-		void setCoincidenceTimeWindowInClk( double twindow ) { fCoinTimeWindow = twindow; }; // in clock
-
-		TTree* getCoincidenceEventsTree();
-		//std::vector<std::vector<TOF_CoincidenceChannelInfo>> getCoincidenceEvents();
-
-		void createCoinTree();
+		void setCoincidenceTimeWindowInClk( double twindow ); // { fCoinTimeWindow = twindow; }; // in clock
+		void setCoincidenceTimeWindowInSec( double twindow );
 		void reset();
 
+		TTree* getCoincidenceEventsTree();
+
+	/// calibration method
+	private:
+		TOF_QdcCalibMethod fQdcCalibMethod{ TOF_QdcCalibMethod::fGetEnergy };
 	public:
 		void setQdcCalibMethod( TOF_QdcCalibMethod calMethod ) { fQdcCalibMethod = calMethod; };
-
 	
 	/// for QA
 	private:
-		const double fTdcFreq = 200E6; // 200 MHz - need to doublecheck it
-		const double fTdcClk = 1./fTdcFreq; // sec
+		const double fTdcFreq  = 200E6; // 200 MHz - confirmed
+		const double fTdcClk   = 1./fTdcFreq; // sec
 		const double fTdcClkNs = fTdcClk/pow(10,-9); // ns
 
-		TH1F* fHisto_dT{nullptr}; // time resolution (ns)
-		TH1F* fHisto_NbOfEvt{nullptr};
-	  TH2F* fHisto_TvsQcal{nullptr}; // = new TH2D("hTvsQcal", ";Time diff in clock;", 300, -3, 3, 100, -0.6, 0.6);
-	
+		TH1F* fHisto_dT{nullptr};        // time resolution (ns)
+		TH1F* fHisto_NbOfEvt{nullptr};   // channel vs nb of coincidence events
+	  TH2F* fHisto_TvsQcal{nullptr};   // tdiff vs qcal ratio
 	public:
 		void generateHistoForQA(const char* pdfName);
 		TH1F* getHisto_TimeResol()       { return fHisto_dT     ; };
@@ -101,7 +90,5 @@ class TOF_CoincidenceEvents : public TObject
 
 };
 
-
-
-
+#endif
 
