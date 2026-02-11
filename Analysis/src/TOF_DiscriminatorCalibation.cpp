@@ -48,7 +48,7 @@ int TOF_DiscriminatorCalibration::readCalib( const char *fname )
   std::ifstream finQ( fname );
 	if( ! finQ.is_open() ) {
 		std::cout<< Form( "[ERR] DISCRIMINATOR calibration file does not exist.Exit(): %s", fname ) << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
   unsigned short portID, slaveID, chipID, channelID;
   double bT, bE, zT1, zT2, zE, nT1, nT2, nE;

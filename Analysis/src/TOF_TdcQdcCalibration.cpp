@@ -73,7 +73,7 @@ int TOF_TdcQdcCalibration::readTdcCalib( const char *fname )
   std::ifstream finT( fname );
 	if( ! finT.is_open() ) {
 		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
   unsigned short portID, slaveID, chipID, channelID, tacID;
   char branch;
@@ -115,7 +115,7 @@ int TOF_TdcQdcCalibration::readQdcCalib( const char *fname )
   std::ifstream finQ( fname );
 	if( ! finQ.is_open() ) {
 		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
   unsigned short portID, slaveID, chipID, channelID, tacID;
   double p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;
@@ -153,7 +153,7 @@ int TOF_TdcQdcCalibration::readCalibrationFiles( const char* fTdcCalib, const ch
 {
 	auto tdc = readTdcCalib( fTdcCalib );
 	auto qdc = readQdcCalib( fQdcCalib );
-	if( tdc<0 || qdc<0 ) return TOF_ERR_OUT_OF_RANGE;
+	if( tdc<0 || qdc<0 ) return TOF_ERR;
 	return 1;
 }
 
