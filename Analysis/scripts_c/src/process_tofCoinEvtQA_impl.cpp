@@ -29,6 +29,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
                             const std::string& qdcCalibPath,
 														const int febD_connID_)
 {
+	/// connector ID
 	int febD_connID_default = 1;
 	int febD_connID = febD_connID_<0? febD_connID_default : febD_connID_;
 
@@ -71,7 +72,9 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	/// class setup
 	const char* inputFile_c = inputFile.c_str();
-	theCoin->setInputPathStg2( inputFile_c );
+	if( theCoin->setInputPathStg2( inputFile_c ) != TOF_GOOD ) {
+		return 1;
+	}
 	theCoin->setActiveChannels( activeChannels );
 
 	/// output naming
@@ -79,7 +82,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	if( !name_root.EndsWith(".stg2.root") ) {
 		std::cerr<< "[ERR] Wrong Input File. Provide *.stg2.root" << std::endl;
-		return false;
+		return 1;
 	}
 
 	TString name_file = (TString) name_root(0, name_root.Index( ".stg2.root" ));
@@ -105,6 +108,6 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	std::cout << "[INFO] Generated Output File: " << fout->GetName() << endl;
 
-  return true;
+  return 0;
 }
 
