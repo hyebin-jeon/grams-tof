@@ -531,16 +531,17 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 }
 
 GRAMS_TOF_CommandDispatch::~GRAMS_TOF_CommandDispatch() {
-    try {
-        if (daqRunning_) {
-            pyint_.getDAQ().stop();
-            if (daqThread_.joinable()) {
-                daqThread_.join();
-            }
-        }
-    } catch (...) {
-        Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception in destructor");
+    monitorRunning_ = false; 
+    if (monitorThread_.joinable()) {
+        monitorThread_.join();
     }
+
+    daqRunning_ = false;
+    if (daqThread_.joinable()) {
+        daqThread_.join();
+    }
+
+    Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception in destructor");
 }
 
 void GRAMS_TOF_CommandDispatch::runDAQThread() {
@@ -682,7 +683,9 @@ void GRAMS_TOF_CommandDispatch::runMonitorThread() {
                 }
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        for (int i = 0; i < 10 && monitorRunning_; ++i) 
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 

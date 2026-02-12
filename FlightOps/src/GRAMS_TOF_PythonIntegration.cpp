@@ -22,19 +22,23 @@ PYBIND11_EMBEDDED_MODULE(grams_tof, m) {
 
 namespace {
 
+void ensure_python_interpreter_is_running() {
+    static pybind11::scoped_interpreter global_guard{}; 
+}
+
 class PythonIntegrationImpl {
 public:
-    explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
-        : guard_(),    // Python starts HERE
-          locals_(),   // Dictionary created HERE (safely)
-          daq_(daq)    // Reference stored
+explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
+        : locals_(),   
+          daq_(daq)    
     {
+        // Ensure the interpreter is running before doing anything
+        ensure_python_interpreter_is_running();
+
         namespace py = pybind11;
         try {
-            // Inject the DAQ manager
             py::module_::import("grams_tof");
             locals_["daq"] = py::cast(&daq_, py::return_value_policy::reference);
-
             Logger::instance().info("[PythonIntegration] Python workspace initialized.");
         } catch (const std::exception& e) {
             Logger::instance().error("[PythonIntegration] Exception during Python init: {}", e.what());
@@ -197,7 +201,7 @@ public:
     }
 
 private:
-    pybind11::scoped_interpreter guard_;
+    //pybind11::scoped_interpreter guard_;
     GRAMS_TOF_DAQManager& daq_;
     pybind11::dict locals_; // The per-session "Clean Room"
 };
