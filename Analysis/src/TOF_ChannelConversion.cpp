@@ -235,10 +235,10 @@ uint8_t TOF_ChannelConversion::getChannelID_64( uint8_t febS_connID )
 
 uint8_t TOF_ChannelConversion::getAsicID( uint8_t febD_connID, uint8_t febS_connID )
 {
-	if( febD_connID<  1 ) return TOF_ERR_OUT_OF_RANGE;
-	if( febD_connID> 15 ) return TOF_ERR_OUT_OF_RANGE;
-	if( febS_connID<  1 ) return TOF_ERR_OUT_OF_RANGE;
-	if( febS_connID> 128) return TOF_ERR_OUT_OF_RANGE;
+	if( febD_connID<  1 ) return TOF_ERR;
+	if( febD_connID> 15 ) return TOF_ERR;
+	if( febS_connID<  1 ) return TOF_ERR;
+	if( febS_connID> 128) return TOF_ERR;
 
 	uint8_t asicID0 = (febD_connID-1)*2; 
 	uint8_t chanID0 = getChannelID_128( febS_connID );

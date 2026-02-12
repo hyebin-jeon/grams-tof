@@ -17,7 +17,7 @@ int TOF_TreeDataStg1::setInputPath( const char* fpath )
 {
 	if ( ! std::filesystem::exists(fpath) ) {
 		std::cerr<< Form( "[ERR] Input file does NOT exist.: %s", fpath ) << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
 	else {
 	  std::cout << Form("[Info] Stg%d Input File: ", getStgNb()) << fpath << std::endl;
@@ -33,7 +33,7 @@ int TOF_TreeDataStg1::setInputPath( const char* fpath )
 	fTTree = (TTree*) fTFile->Get( "data" );
 	if( !fTTree ) {
 		std::cerr<< Form( "[ERR] TTree does NOT exist in %s:", fpath ) << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
 
 	return TOF_GOOD;
