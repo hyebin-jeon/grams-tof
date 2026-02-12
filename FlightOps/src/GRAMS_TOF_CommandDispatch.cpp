@@ -306,6 +306,25 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         }
     };
 
+		// RUN_ACQUIRE_ACTIVE_ASIC_LIST - hyeb
+    table_[TOFCommandCode::RUN_ACQUIRE_ACTIVE_ASIC_LIST] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        try {
+            //auto timestampStr = config.getCurrentTimestamp();
+            Logger::instance().warn("[Dispatch] Starting acquiring active asic list in background...");
+
+            std::vector<std::string> sArgs;
+            sArgs.push_back("--config");
+            sArgs.push_back(config.getConfigFilePath());
+            sArgs.push_back("-o");
+            sArgs.push_back(config.makeFilePathWithTimestamp(config.config.getConfigDir(), "active_asic")); //, timestampStr));
+
+            return executeManagedBackground(TOFCommandCode::RUN_ACQUIRE_ACTIVE_ASIC_LIST, "acquire_active_asic_list.py", sArgs);
+        } catch (...) {
+            Logger::instance().error("[GRAMS_TOF_CommandDispatch] Exception in RUN_ACQUIRE_ACTIVE_ASIC_LIST");
+            return false;
+        }
+    };
+
     // RUN_ACQUIRE_QDC_CALIBRATION
     table_[TOFCommandCode::RUN_ACQUIRE_QDC_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {

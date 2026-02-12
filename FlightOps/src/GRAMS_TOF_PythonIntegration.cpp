@@ -326,6 +326,7 @@ GRAMS_TOF_PythonIntegration::GRAMS_TOF_PythonIntegration(GRAMS_TOF_DAQManager& d
     loadPythonScript(resolveScriptPath("acquire_qdc_calibration.py"));
     loadPythonScript(resolveScriptPath("acquire_tdc_calibration.py"));
     loadPythonScript(resolveScriptPath("acquire_sipm_data.py"));
+    loadPythonScript(resolveScriptPath("acquire_active_asic_list.py"));
 }
 
 GRAMS_TOF_PythonIntegration::~GRAMS_TOF_PythonIntegration() = default;

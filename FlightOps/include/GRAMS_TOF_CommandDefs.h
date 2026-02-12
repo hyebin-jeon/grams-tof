@@ -21,6 +21,7 @@ enum class TOFCommandCode : uint16_t {
     RUN_ACQUIRE_SIPM_DATA                  = 0x5109,
     RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN   = 0x5110,
     RUN_ACQUIRE_THRESHOLD_CALIBRATION_D    = 0x5111,
+    RUN_ACQUIRE_ACTIVE_ASIC_LIST           = 0x5112, // hyeb
     
     RUN_PROCESS_THRESHOLD_CALIBRATION      = 0x5200,
     RUN_PROCESS_TDC_CALIBRATION            = 0x5201,
@@ -65,6 +66,7 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::RUN_ACQUIRE_SIPM_DATA:                return os << "RUN_ACQUIRE_SIPM_DATA";
         case TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN: return os << "RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN";
         case TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_D:  return os << "RUN_ACQUIRE_THRESHOLD_CALIBRATION_D";
+        case TOFCommandCode::RUN_ACQUIRE_ACTIVE_ASIC_LIST:         return os << "RUN_ACQUIRE_ACTIVE_ASIC_LIST"; // hyeb
         
         case TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION:    return os << "RUN_PROCESS_THRESHOLD_CALIBRATION";
         case TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION:          return os << "RUN_PROCESS_TDC_CALIBRATION";
@@ -110,6 +112,7 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::RUN_ACQUIRE_SIPM_DATA:                return CommunicationCodes::TOF_Run_Acquire_SiPM_Data;
         case TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN: return CommunicationCodes::TOF_Run_Acquire_Threshold_Calibration_BN;
         case TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_D:  return CommunicationCodes::TOF_Run_Acquire_Threshold_Calibration_D;
+				case TOFCommandCode::RUN_ACQUIRE_ACTIVE_ASIC_LIST:         return CommunicationCodes::TOF_Run_Acquire_Active_Asic_List; // hyeb
 
         case TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION:    return CommunicationCodes::TOF_Run_Process_Threshold_Calibration;
         case TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION:          return CommunicationCodes::TOF_Run_Process_TDC_Calibration;
@@ -151,6 +154,7 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Run_Acquire_SiPM_Data:                return TOFCommandCode::RUN_ACQUIRE_SIPM_DATA;
         case CommunicationCodes::TOF_Run_Acquire_Threshold_Calibration_BN: return TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_BN;
         case CommunicationCodes::TOF_Run_Acquire_Threshold_Calibration_D:  return TOFCommandCode::RUN_ACQUIRE_THRESHOLD_CALIBRATION_D;
+        case CommunicationCodes::TOF_Run_Acquire_Active_Asic_List:         return TOFCommandCode::RUN_ACQUIRE_ACTIVE_ASIC_LIST; // hyeb
 
         case CommunicationCodes::TOF_Run_Process_Threshold_Calibration:    return TOFCommandCode::RUN_PROCESS_THRESHOLD_CALIBRATION;
         case CommunicationCodes::TOF_Run_Process_TDC_Calibration:          return TOFCommandCode::RUN_PROCESS_TDC_CALIBRATION;
