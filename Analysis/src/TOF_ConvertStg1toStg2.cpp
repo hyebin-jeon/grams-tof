@@ -24,12 +24,12 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
 
 	if( !fStg1->getTTree() ) {
 		std::cerr << "[ERR] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1->getTTree() is NULL." << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
 
 	if( fStg1->getEntries() == 0 ) {
 		std::cout << "[WARN] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1 entries = 0." << std::endl;
-		return TOF_ERR_OUT_OF_RANGE;
+		return TOF_ERR;
 	}
 
 	fStg1->setBranchAddress(); // duplicate
@@ -40,7 +40,7 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
 	TTimeStamp ts_cpu = ts_cpu0;
 	TTimeStamp ts_pps = ts_cpu0;
 
-	fStg2->makeBranches();
+	//fStg2->makeBranches();
 
 	for( int i=0; i<fStg1->getEntries(); i++ )
 	{
@@ -92,11 +92,47 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
 		fStg2->setTimeStampCPU( &ts_cpu    );
 		fStg2->setTimeStampPPS( &ts_pps    );
 
-		fStg2->fillTTree(); 
+		//fStg2->fillTTree(); 
 	}
   
 	return TOF_GOOD;
 }
+
+int TOF_ConvertStg1toStg2::addConnIDBranches()
+{
+
+	if( !fStg1->getTTree() ) {
+		std::cerr << "[ERR] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1->getTTree() is NULL." << std::endl;
+		return TOF_ERR;
+	}
+
+	if( fStg1->getEntries() == 0 ) {
+		std::cout << "[WARN] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1 entries = 0." << std::endl;
+		return TOF_ERR;
+	}
+
+	fStg1->setBranchStatus("channelID",1); // duplicate
+	fStg1->setBranchAddress(); // duplicate
+
+	//fStg2->makeBranches();
+
+	for( int i=0; i<fStg1->getEntries(); i++ )
+	{
+		fStg1->getEntry(i);
+
+    auto channelID = fStg1->getChannelID();
+		auto connID_D  = TOF_ChannelConversion::getInstance()->getConnIdOnFebD( channelID );
+		auto connID_S  = TOF_ChannelConversion::getInstance()->getConnIdOnFebS( channelID );
+
+		fStg2->setConnID_FebD( connID_D );
+		fStg2->setConnID_FebS( connID_S );
+
+		//fStg2->fillTTree();
+	}
+
+	return TOF_GOOD;
+}
+
 
 
 void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2 )
@@ -115,7 +151,10 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	}
 
 	fStg2->setOutputPath( kPathStg2, "recreate" );
+	fStg2->makeBranches();
 	addTimestampBranches();
+	addConnIDBranches();
+	fStg2->fillTTree(); 
 	fStg2->getTTree()->Write();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
 	fStg2->closeTFile();

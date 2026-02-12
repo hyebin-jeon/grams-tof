@@ -256,10 +256,10 @@ uint32_t TOF_ChannelConversion::getAbsoluteChannelID( uint8_t febD_connID, uint8
 
 	/// According to the user manual, TOFPET2 ASIC SIPM Readout System Software user guide,
 	/// absolute channel ID = 131072*portID + 4096*slaveID + 64*chipID + ChannelID
-	uint32_t absChanID = pow(2, 17) * portID
-		                 + pow(2, 12) * slaveID
-		                 + pow(2,  6) * asicID
-	                   + chanID;
+	uint32_t absChanID = pow(2, 17) * static_cast<uint32_t>(portID )
+		                 + pow(2, 12) * static_cast<uint32_t>(slaveID)
+		                 + pow(2,  6) * static_cast<uint32_t>(asicID )
+	                   + static_cast<uint32_t>(chanID);
 
 	//cout << Form("portID= %2d, slaveID= %2d, asicID0= %2d, asicID1= %2d, chanID= %2d ==> Abs. channelID = %7d", portID, slaveID, asicID0, asicID1, chanID, absChanID) << endl;
 
@@ -268,7 +268,7 @@ uint32_t TOF_ChannelConversion::getAbsoluteChannelID( uint8_t febD_connID, uint8
 
 uint32_t TOF_ChannelConversion::getAbsoluteChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID )
 {
-	return 131072*portID + 4096*slaveID + 64*chipID + channelID;
+	return 131072* static_cast<uint32_t>(portID) + 4096* static_cast<uint32_t>(slaveID) + 64*static_cast<uint32_t>(chipID) + static_cast<uint32_t>(channelID);
 }
 
 		
@@ -322,3 +322,47 @@ uint8_t TOF_ChannelConversion::getConnIdOnFebD( uint32_t channel )
 
 	return connID;
 }
+
+uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
+{
+	auto febD = getConnIdOnFebD( absoluteChannel );
+	auto febS = getConnIdOnFebS( absoluteChannel );
+
+	uint8_t febD_idx = 2; // dummy initilization
+	if     ( febD == fFebD_connID0 ) febD_idx = 0;
+	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
+
+	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+
+	return phyID;
+}
+
+uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS )
+{
+	uint8_t febD_idx = 2; // dummy initilization
+	if     ( febD == fFebD_connID0 ) febD_idx = 0;
+	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
+
+	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+
+	return phyID;
+}
+
+uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID )
+{
+	auto absoluteChannel = getAbsoluteChannelID( portID, slaveID, chipID, channelID );
+	auto febD = getConnIdOnFebD( absoluteChannel );
+	auto febS = getConnIdOnFebS( absoluteChannel );
+
+	uint8_t febD_idx = 2; // dummy initilization
+	if     ( febD == fFebD_connID0 ) febD_idx = 0;
+	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
+
+	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+
+	return phyID;
+}
+

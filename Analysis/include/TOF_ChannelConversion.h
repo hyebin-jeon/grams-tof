@@ -4,6 +4,7 @@
 #define _TOF_CHANNELCONVERSION_
 
 #include <map>
+#include <iostream>
 #include "TObject.h"
 
 class TOF_ChannelConversion : public TObject
@@ -25,6 +26,9 @@ class TOF_ChannelConversion : public TObject
 		std::map<uint8_t, uint8_t> fMap_ConnIdToChannelId;
 		std::map<uint8_t, uint8_t> fMap_ChannelIdToConnId;
 
+		uint8_t fFebD_connID0;
+		uint8_t fFebD_connID1;
+
 	public:
 		void fillMapConnIdToChannelId();
 		void fillMapChannelIdToConnId();
@@ -38,21 +42,26 @@ class TOF_ChannelConversion : public TObject
 		uint8_t  getChannelID_128( uint8_t febS_connID ); // [0-127] within a set of two ASICs
 		uint8_t  getChannelID_64 ( uint8_t febS_connID ); // [0-63] within an ASIC
     uint32_t getAbsoluteChannelID( uint8_t febD_connID, uint8_t febS_connID );
-
 		uint32_t getAbsoluteChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID );
 
 		/// Break an absolute channel ID into each element
-		uint8_t getPortID   ( uint32_t channel );
-		uint8_t getSlaveID  ( uint32_t channel );
-		uint8_t getAsicID   ( uint32_t channel ); // 0-15
-		uint8_t getChannelID( uint32_t channel ); // 0-63
+		uint8_t getPortID   ( uint32_t absoluteChannel );
+		uint8_t getSlaveID  ( uint32_t absoluteChannel );
+		uint8_t getAsicID   ( uint32_t absoluteChannel ); // 0-15
+		uint8_t getChannelID( uint32_t absoluteChannel ); // 0-63
 
-		uint8_t getAsicIdx   ( uint32_t channel ); // 0 or 1
-		uint8_t getChannelID_128( uint32_t channel ); // 0-127
+		uint8_t getAsicIdx   ( uint32_t absoluteChannel ); // 0 or 1
+		uint8_t getChannelID_128( uint32_t absoluteChannel ); // 0-127
 		
 		/// Conversion from an absolute channel ID (software) to connector IDs (hardware)
-		uint8_t getConnIdOnFebD( uint32_t channel ); // 1-8
-		uint8_t getConnIdOnFebS( uint32_t channel ); // 1-128
+		uint8_t getConnIdOnFebD( uint32_t absoluteChannel ); // 1-8
+		uint8_t getConnIdOnFebS( uint32_t absoluteChannel ); // 1-128
+
+		uint16_t getPhysicalChannelID( uint32_t absoluteChannel );
+		uint16_t getPhysicalChannelID( uint8_t febD_connID, uint8_t febS_connID );
+		uint16_t getPhysicalChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID );
+
+		void    setActiveConnIdOnFebD( uint8_t febD_connID_a, uint8_t febD_connID_b );
 		
 	  ClassDef(TOF_ChannelConversion, 1)
 
