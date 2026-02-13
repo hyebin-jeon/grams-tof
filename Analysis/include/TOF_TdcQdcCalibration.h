@@ -103,8 +103,7 @@ class TOF_TdcQdcCalibration : public TObject
 			  return getCalibratedTime_E(absChannelID, tacID, frameID, coarse, fine );
 			else 
 			{
-				//cout << "ERROR" << endl;
-				return TOF_ERR_OUT_OF_RANGE;
+				return TOF_ERR;
 			}
 		}
 

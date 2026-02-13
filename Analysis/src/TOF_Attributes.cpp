@@ -182,16 +182,16 @@ void TOF_Attributes::moveStatBox( TPaveStats* ps, double x0, double y0, double x
 int TOF_Attributes::moveStatBoxNDC( TPaveStats* ps, double x0, double y0, double x1, double y1 )
 {
 	if( x0<1 && x0>0 ) ps->SetX1NDC( x0 );
-	else return TOF_ERR_OUT_OF_RANGE;
+	else return TOF_ERR;
 
 	if( y0<1 && y0>0 ) ps->SetY1NDC( y0 );
-	else return TOF_ERR_OUT_OF_RANGE;
+	else return TOF_ERR;
 
 	if( x1<1 && x1>0 ) ps->SetX2NDC( x1 );
-	else return TOF_ERR_OUT_OF_RANGE;
+	else return TOF_ERR;
 
 	if( y1<1 && y1>0 ) ps->SetY2NDC( y1 );
-	else return TOF_ERR_OUT_OF_RANGE;
+	else return TOF_ERR;
 
 	return 1;
 }
