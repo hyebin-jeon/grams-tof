@@ -73,7 +73,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 	/// class setup
 	const char* inputFile_c = inputFile.c_str();
 	if( theCoin->setInputPathStg2( inputFile_c ) != TOF_GOOD ) {
-		return 1;
+		return false;
 	}
 	theCoin->setActiveChannels( activeChannels );
 
@@ -82,7 +82,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	if( !name_root.EndsWith(".stg2.root") ) {
 		std::cerr<< "[ERR] Wrong Input File. Provide *.stg2.root" << std::endl;
-		return 1;
+		return false;
 	}
 
 	TString name_file = (TString) name_root(0, name_root.Index( ".stg2.root" ));
@@ -108,6 +108,6 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	std::cout << "[INFO] Generated Output File: " << fout->GetName() << endl;
 
-  return 0;
+  return true;
 }
 
