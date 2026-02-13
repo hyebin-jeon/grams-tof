@@ -29,6 +29,7 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
                             const std::string& qdcCalibPath,
 														const int febD_connID_)
 {
+	/// connector ID
 	int febD_connID_default = 1;
 	int febD_connID = febD_connID_<0? febD_connID_default : febD_connID_;
 
@@ -71,7 +72,9 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
 
 	/// class setup
 	const char* inputFile_c = inputFile.c_str();
-	theCoin->setInputPathStg2( inputFile_c );
+	if( theCoin->setInputPathStg2( inputFile_c ) != TOF_GOOD ) {
+		return false;
+	}
 	theCoin->setActiveChannels( activeChannels );
 
 	/// output naming

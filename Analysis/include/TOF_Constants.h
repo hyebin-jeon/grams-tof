@@ -29,5 +29,5 @@ const double fTOF_TdcClkPerNs = fTOF_TdcClkPer * 1E9; // period in nsec
 
 #define TOF_GOOD 1
 #define TOF_WARNING -1
-#define TOF_ERR_OUT_OF_RANGE -2
+#define TOF_ERR -2
 

@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     };
 
     int c;
-    while ((c = getopt_long(argc, argv, "hi:o::t:q:c:", longOptions, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "hi:o:t:q:c:", longOptions, NULL)) != -1) {
         switch (c) {
             case 'i': inputFile = optarg; break;
             case 'o': outputBase = optarg; break;
