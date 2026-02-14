@@ -323,6 +323,53 @@ uint8_t TOF_ChannelConversion::getConnIdOnFebD( uint32_t channel )
 	return connID;
 }
 
+int TOF_ChannelConversion::readActiveAsicList( const char* fname )
+{
+  std::ifstream fin( fname );
+	if( ! fin.is_open() ) {
+		std::cout<< Form( "[ERR] Input File Does NOT Exist: %s", fname ) << std::endl;
+		return TOF_ERR;
+	}
+
+  std::string word, sLine;
+  std::stringstream ssLine;
+	const int line0 = 1;
+  int wordN{0}, lineN{0};
+	int portID, slaveID;
+	std::vector<int> vFebD_connID;
+
+	/// read line by line
+  while( std::getline(fin, sLine) )
+  {
+    ssLine.clear();
+    ssLine << sLine;
+
+		/// break a line to words
+		/// the scan param table should use '\t' to separate variables
+    wordN=0;
+    while( std::getline(ssLine, word, '\t') ) 
+    {   
+		  if( lineN< line0 ) {lineN++; continue;}
+
+			if     ( wordN==0 ) portID  = std::atoi( word.c_str() );
+			else if( wordN==1 ) slaveID = std::atoi( word.c_str() );
+			else if( wordN==2 ) vFebD_connID.push_back( std::atoi( word.c_str() ) );
+			else std::cout << "[Warning] Too Many Scan Parameter values.." << std::endl;
+
+			wordN++;
+		}
+
+		lineN++;
+	}
+
+	if( vFebD_connID.size()!=2 ) return TOF_ERR;
+
+	fFebD_connID0 = vFebD_connID.at(0);
+	fFebD_connID1 = vFebD_connID.at(1);
+
+	return TOF_GOOD;
+}
+
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
 {
 	auto febD = getConnIdOnFebD( absoluteChannel );
