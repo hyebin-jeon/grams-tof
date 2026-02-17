@@ -12,8 +12,8 @@
 
 bool runTofQA_Iridium( const std::string& inputFile,
                        const std::string& outputBase,
-											 const std::string& asicListFile,
-											 const int runTimeSec_
+											 const std::string& asicListFile
+											 //const int runTimeSec_
 											 )
 {
 	/// output naming
@@ -38,23 +38,35 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	stg2->setInputPath( inputFile_c );
 	stg2->setBranchAddress();
 
-	/// time_begin
+	/// x-axis time range
+	const int binW = 10; // in sec
 	stg2->getEntry(0);
-	TTimeStamp t_begin = stg2->getTimeStampPPS();
+	TTimeStamp t_begin = stg2->getTimeStampCPU();
+	stg2->getEntry( stg2->getEntries()-1 );
+	TTimeStamp t_end = stg2->getTimeStampCPU();
+	int tmin = t_begin.GetSec();
+	int dur_nano = t_end.GetNanoSec() - t_begin.GetNanoSec();
+	int dur  = t_end.GetSec() - t_begin.GetSec();
+	if( dur_nano < 0 ) dur = dur -1;
+	else if( dur_nano > 0 ) dur = dur + 1;
+	int tmax = dur%binW==0? t_end.GetSec() : t_end.GetSec()+ binW;
+
+	const double runTimeSec = (t_end.GetSec() + (double)t_end.GetNanoSec()*1E-9) - (t_begin.GetSec() + (double)t_begin.GetNanoSec()*1E-9);;
 
 	/// histograms
-	TTimeStamp tmin( t_begin.GetSec(), 0 );
-	int runTimeSec = runTimeSec<0? 30*60 : runTimeSec_;
-	int timeBinNb  = runTimeSec%10? runTimeSec/10+1 : runTimeSec/10;
+	int timeRange = tmax - tmin;
+	int timeBinNb  = timeRange%10? timeRange/10+1 : timeRange/10;
 	TH1F* hEvtChan[nb];
 	TH1F* hEvtTime[nb];
 	for( int i=0; i<nb; i++ )
 	{
-	  hEvtChan[i] = new TH1F(Form("hEvtChan%d",i), Form("%02d_connID_onFebD", activeConnIds_D[i]), 255, 1, 256 );
-	  hEvtTime[i] = new TH1F(Form("hEvtTime%d",i), Form("%02d_connID_onFebD", activeConnIds_D[i]), timeBinNb, tmin, tmin+runTimeSec); // 1800 sec = 40 min, 1 bin per 10 sec
+	  hEvtChan[i] = new TH1F(Form("hEvtChan%d",i), Form("Channel vs. Event rate (FebD_%02d)", activeConnIds_D[i]), 128, 1, 129 );
+	  hEvtTime[i] = new TH1F(Form("hEvtTime%d",i), Form("CPU time vs. Event rate (FebD_%02d)", activeConnIds_D[i]), timeBinNb, tmin, tmax); // 1800 sec = 40 min, 1 bin per 10 sec
 
 		hEvtChan[i]->GetXaxis()->SetTitle("connector ID on FEB-S");
-		hEvtTime[i]->GetXaxis()->SetTitle("Time (UTC)");
+		hEvtTime[i]->GetXaxis()->SetTitle("CPU time (UTC), 10 sec/bin");
+		hEvtChan[i]->GetYaxis()->SetTitle("Event rate (Hz)");
+		hEvtTime[i]->GetYaxis()->SetTitle("Event rate (Hz)");
 	}
 
 	/// fill the histo
@@ -70,10 +82,12 @@ bool runTofQA_Iridium( const std::string& inputFile,
 		{
 		  if( connID_D != activeConnIds_D[j] ) continue;
 			
-			hEvtChan[j]->Fill( connID_S );
-			hEvtTime[j]->Fill( ts_pps.AsDouble() );
+			hEvtChan[j]->Fill( connID_S, 1./ runTimeSec );
+			//hEvtChan[j]->Fill( connID_S );
+			hEvtTime[j]->Fill( ts_pps.AsDouble(), 1./(double)binW );
 		}
 	}
+
 
 	/// output file naming
 	std::string fin_root = stg2->getFileName();
@@ -91,11 +105,14 @@ bool runTofQA_Iridium( const std::string& inputFile,
 
 	TCanvas* canv0 = new TCanvas("canv0", "canv0"); //, 1100, 500);
 	canv0->Print( Form("%s[", fout_pdf) ); // open 
-	canv0->Divide(nb,2,0.0002,0.01);
+	canv0->Divide(nb,2,0.005,0.005);
 
 	gStyle->SetOptStat(111111);
 	for( int j=0; j<nb; j++ )
 	{
+	  /// scale the histo to make y axis = event rate
+		//hEvtChan[j]->Scale( 1./(double) runTimeSec );
+
 		theAttrib->attribHist( hEvtChan[j] );
 		theAttrib->attribHist( hEvtTime[j] );
 		hEvtTime[j]->GetXaxis()->SetTimeDisplay(1);
@@ -103,9 +120,9 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	  hEvtTime[j]->GetXaxis()->SetTimeOffset(0, "gmt");
 
 	  canv0->cd(j+1);
-	  hEvtChan[j]->Draw();
+	  hEvtChan[j]->Draw("hist");
 	  canv0->cd(j+3);
-	  hEvtTime[j]->Draw();
+	  hEvtTime[j]->Draw("hist");
 
 		hEvtChan[j]->Write();
 		hEvtTime[j]->Write();
