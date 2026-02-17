@@ -15,6 +15,7 @@ void TOF_ConvertStg1toStg2::setClassStg2()
 }
 int TOF_ConvertStg1toStg2::setInputPathStg1( const char* fpath )
 {
+	if( !fStg1 ) setClassStg1();
 	return fStg1->setInputPath( fpath );
 };
 
@@ -146,7 +147,7 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	if( !fStg1 ) setClassStg1();
 	if( !fStg2 ) setClassStg2();
 
-	if( fStg1->setInputPath( kPathStg1 ) < 0 ) return;
+	if( fStg1->setInputPath( kPathStg1 ) != TOF_GOOD ) return;
 
 	if( strcmp(kPathStg2, "")==0 ) {
 		TString dir   = std::filesystem::current_path().string() + "/output"; // Stg2 path 

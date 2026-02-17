@@ -122,12 +122,11 @@ void GRAMS_TOF_DAQController::run() {
     Logger::instance().info("[System] GRAMS_TOF_DAQController running...");
 
     while (keepRunning_) {
-        // Sleep briefly to avoid busy-waiting and allow other threads to run
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     Logger::instance().info("[System] Finalizing network transmissions...");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     commandClient_->stop();
     eventClient_->stop();

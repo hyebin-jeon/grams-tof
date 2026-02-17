@@ -6,10 +6,9 @@ ClassImp( TOF_TreeDataStg1 );
 int TOF_TreeDataStg1::isFileStg( const char* fpath )
 {
 	if( !((TString) fpath).EndsWith( Form(".stg%d.root", getStgNb()) ) ) {
-		std::cout << Form("[WARN] Input Stg%d File does NOT end with \'.stg1.root\'", getStgNb()) << std::endl;
-		return TOF_WARNING;
+		std::cerr << Form("[ERR] Wrong Input File Format. Provide file_name.stg%d.root", getStgNb()) << std::endl; 
+		return TOF_ERR;
 	}
-
 	return TOF_GOOD;
 }
 
@@ -19,15 +18,19 @@ int TOF_TreeDataStg1::setInputPath( const char* fpath )
 		std::cerr<< Form( "[ERR] Input file does NOT exist.: %s", fpath ) << std::endl;
 		return TOF_ERR;
 	}
-	else {
-	  std::cout << Form("[Info] Stg%d Input File: ", getStgNb()) << fpath << std::endl;
-	}
 
-	isFileStg( fpath );
+	if( isFileStg(fpath)!= TOF_GOOD ) {
+		return TOF_ERR;
+	}
 
 	fFileExist = true;
 	fFilePath = fpath;
 	fFileName = std::filesystem::path(fpath).filename().string();
+
+	//if( !((TString)fFileName).EndsWith(Form(".stg%d.root", getStgNb())) ) {
+	//}
+	  
+	std::cout << Form("[Info] Stg%d Input File: ", getStgNb()) << fpath << std::endl;
 
 	fTFile = new TFile( fpath, "read" );
 	fTTree = (TTree*) fTFile->Get( "data" );

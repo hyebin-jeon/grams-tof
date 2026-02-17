@@ -3,7 +3,20 @@
 #include "TOF_CoincidenceEvents.h"
 
 ClassImp( TOF_CoincidenceEvents );
+
+void TOF_CoincidenceEvents::setClassStg2()
+{
+	fStg2 = new TOF_TreeDataStg2();
+	return;
+}
 		
+int TOF_CoincidenceEvents::setInputPathStg2( const char* fnameStg2 )
+{
+	if( !fStg2 ) setClassStg2();
+
+	return fStg2->setInputPath( fnameStg2 );
+}
+
 void TOF_CoincidenceEvents::setActiveChannels( std::vector<uint32_t> chanList )
 {
 	fActiveChannelList.clear();
@@ -19,27 +32,16 @@ void TOF_CoincidenceEvents::setActiveChannels( std::vector<uint32_t> chanList )
 	return;
 }
 
-int TOF_CoincidenceEvents::setInputPathStg2( const char* fnameStg2 )
-{
-	//if( !tr ) {
-	//	std::cout << "[ERR] TOF_CoincidenceEvents::setTreeData( TOF_TreeDataStg2* tr ), Given 'tr' NOT FOUND" << std::endl;
-	//	return -1;
-	//}
-
-	fUseStg2 = true;
-
-	fStg2Good = fStg2->setInputPath( fnameStg2 );
-	return fStg2Good;
-}
-
 TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 {
+	if( !fStg2 ) setClassStg2();
+	if( !fStg2->getTFile() ) return nullptr;
+	if( !fStg2->getTTree() ) return nullptr;
 
 	if( fStg2->getEntries() == 0 ) {
 		std::cout << "[ERR] Stg2 TTree entries = 0. Exit." << std::endl;
 		return nullptr;
 	}
-	
 
 	/// create fTreeCoin and do Branch()
 	fTreeCoin = new TTree( "tCoin", "tCoin" );
@@ -67,16 +69,10 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 	{
 		fStg2->getEntry(i);
 
-		if( fUseStg2 ) {
-		  auto ts_cpu = fStg2->getTimeStampCPU();
-		  auto ts_pps = fStg2->getTimeStampPPS();
-		  channelInfo.ts_cpu    = ts_cpu;
-		  channelInfo.ts_pps    = ts_pps;
-		}
-		else {
-		  channelInfo.ts_cpu    = TTimeStamp(0,0); // dummy
-		  channelInfo.ts_pps    = TTimeStamp(0,0); // dummy
-		}
+		auto ts_cpu = fStg2->getTimeStampCPU();
+		auto ts_pps = fStg2->getTimeStampPPS();
+		channelInfo.ts_cpu    = ts_cpu;
+		channelInfo.ts_pps    = ts_pps;
 
 		auto frameID      = fStg2->getFrameID();
 		auto tCoarse      = fStg2->getTCoarse();

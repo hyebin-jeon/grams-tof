@@ -52,6 +52,7 @@ void GRAMS_TOF_EventClient::stop() {
     if (!running_) return;
     running_ = false;
 
+    /*
     // Gracefully close the connection to unblock the run loop
     std::unique_ptr<GRAMS_TOF_Client> client_to_close = nullptr;
     {
@@ -63,6 +64,16 @@ void GRAMS_TOF_EventClient::stop() {
     if (client_to_close) {
         // Closing the FD here forces the blocking epoll_pwait in run() to return/fail
         client_to_close->closeFD();
+    }
+    */
+
+    {
+        std::lock_guard<std::mutex> lock(connectionMutex_);
+        if (hubConnection_) {
+            // Forcefully shutdown the socket to break any blocking connect/recv
+            ::shutdown(hubConnection_->fd(), SHUT_RDWR); 
+            hubConnection_->closeFD();
+        }
     }
 
     if (client_thread_.joinable()) client_thread_.join();
@@ -139,7 +150,9 @@ void GRAMS_TOF_EventClient::run() {
         connected_fd = socket(AF_INET, SOCK_STREAM, 0);
         if (connected_fd < 0) {
             Logger::instance().error("[EventClient] socket() failed: {}", std::strerror(errno));
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            //std::this_thread::sleep_for(std::chrono::seconds(2));
+            for (int i = 0; i < 20 && running_; ++i) 
+              std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
@@ -154,7 +167,9 @@ void GRAMS_TOF_EventClient::run() {
             Logger::instance().error("[EventClient] Invalid address {}:{}", hub_ip_, port_);
             ::close(connected_fd);
             GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::EVENT);
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            //std::this_thread::sleep_for(std::chrono::seconds(2));
+            for (int i = 0; i < 20 && running_; ++i) 
+              std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
@@ -163,7 +178,9 @@ void GRAMS_TOF_EventClient::run() {
             Logger::instance().error("[EventClient] connect() failed: {}", std::strerror(errno));
             ::close(connected_fd);
             GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::EVENT);
-            std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait longer before retrying connection
+            //std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait longer before retrying connection
+            for (int i = 0; i < 50 && running_; ++i) 
+              std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
