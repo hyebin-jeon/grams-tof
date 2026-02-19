@@ -42,12 +42,15 @@ public:
    bool runPetsysConvertStg1ToStg2(const std::string& inputFileName,
                                    const std::string& outputDir);
 
-    bool runPetsysProcessTofCoinEvtQA(const std::string& inputFile,
-                                      const std::string& outputBase,
-                                      const std::string& tdcCalibPath = "",
-                                      const std::string& qdcCalibPath = "",
-																			const int          febD_connID = -1
+   bool runPetsysProcessTofCoinEvtQA(const std::string& inputFile,
+                                     const std::string& outputBase,
+                                     const std::string& tdcCalibPath = "",
+                                     const std::string& qdcCalibPath = "",
+																		 const int          febD_connID = -1
 																			);
+   bool runPetsysProcessTofQAIridium(const std::string& inputFileName,
+                                     const std::string& outputBase="",
+											               const std::string& asicListFile="");
 
 private:
     template<typename Func, typename... Args>
