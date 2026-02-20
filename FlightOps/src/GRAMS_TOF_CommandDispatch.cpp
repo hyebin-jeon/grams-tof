@@ -496,6 +496,19 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
+    // RUN_PROCESS_TOF_QA_IRIDIUM
+    table_[TOFCommandCode::RUN_PROCESS_TOF_QA_IRIDIUM] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TOF_QA_IRIDIUM, [&]() {
+            auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF Quality Assurance for Iridium...");
+            return analyzer_.runPetsysProcessTofQAIridium(
+                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
+								config.getHistDir(),
+								config.getString("main", "active_asic_list") /// hyeb - this is new
+            );
+        });
+    };
+
     // HEART_BEAT
     table_[TOFCommandCode::HEART_BEAT] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {

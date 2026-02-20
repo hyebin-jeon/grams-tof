@@ -6,6 +6,7 @@
 #include "convert_raw_to_singles.h"
 #include "process_convertStg1ToStg2.h"
 #include "process_tofCoinEvtQA.h"
+#include "process_tofQA_iridium.h"
 
 bool GRAMS_TOF_Analyzer::runPetsysProcessThresholdCalibration(
     const std::string& configFile,
@@ -96,5 +97,15 @@ bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
     return safeRun("runPetsysProcessTofCoinEvt",
                    runProcessTofCoinEvtQA,
                    inputFile, outputBase, tdcCalibPath, qdcCalibPath, febD_connID);
+}
+
+bool GRAMS_TOF_Analyzer::runPetsysProcessTofQAIridium(
+    const std::string& inputFileName,
+    const std::string& outputBase,
+    const std::string& asicListFile)
+{
+    return safeRun("runPetsysProcessTofQAIridium",
+		    runTofQA_Iridium,
+                   inputFileName, outputBase, asicListFile);
 }
 
