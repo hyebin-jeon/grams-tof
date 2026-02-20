@@ -23,7 +23,7 @@ PYBIND11_EMBEDDED_MODULE(grams_tof, m) {
 namespace {
 
 void ensure_python_interpreter_is_running() {
-    static pybind11::scoped_interpreter global_guard{}; 
+    //static pybind11::scoped_interpreter global_guard{};  // hyeb
 }
 
 class PythonIntegrationImpl {
