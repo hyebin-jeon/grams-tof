@@ -88,6 +88,7 @@ enum class CommunicationCodes : uint16_t {
 
   TOF_Run_Convert_Stg1_To_Stg2 = construct_code(0x300, COM_SUBSYSTEM_TOF_MSK),
   TOF_Run_Process_TOF_Coin_Evt_QA = construct_code(0x301, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Run_Process_TOF_QA_Iridium = construct_code(0x302, COM_SUBSYSTEM_TOF_MSK),
   
   TOF_Monitor_Data_Stream = construct_code(0x400, COM_SUBSYSTEM_TOF_MSK),
 

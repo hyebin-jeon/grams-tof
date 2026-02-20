@@ -50,7 +50,7 @@ public:
 																			);
    bool runPetsysProcessTofQAIridium(const std::string& inputFileName,
                                      const std::string& outputBase="",
-											               const std::string& asicListFile="");
+                                     const std::string& asicListFile="");
 
 private:
     template<typename Func, typename... Args>

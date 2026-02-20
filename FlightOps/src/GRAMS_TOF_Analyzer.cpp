@@ -100,12 +100,12 @@ bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
 }
 
 bool GRAMS_TOF_Analyzer::runPetsysProcessTofQAIridium(
-		const std::string& inputFileName,
-    const std::string& outputBase="",
-		const std::string& asicListFile="")
+    const std::string& inputFileName,
+    const std::string& outputBase,
+    const std::string& asicListFile)
 {
     return safeRun("runPetsysProcessTofQAIridium",
-                   runProcessTofQA_Iridium,
-                   inputFile, outputBase, asicListFile);
+		    runTofQA_Iridium,
+                   inputFileName, outputBase, asicListFile);
 }
 
