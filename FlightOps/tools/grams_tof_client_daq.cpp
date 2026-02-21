@@ -3,7 +3,6 @@
 #include "GRAMS_TOF_Logger.h" 
 #include <iostream>
 #include <memory>
-#include <pybind11/embed.h> // hyeb
 
 int main(int argc, char* argv[]) {
 
@@ -29,13 +28,9 @@ int main(int argc, char* argv[]) {
         } else config.configFile =  GRAMS_TOF_Config::instance().getConfigFilePath();
     }
 
-    pybind11::scoped_interpreter guard{}; // hyeb
-
     std::unique_ptr<GRAMS_TOF_DAQController> daqController;
     try {
-	std::cout << "GRAMS ERR check hyeb 0" << std::endl; // hyeb
         daqController = std::make_unique<GRAMS_TOF_DAQController>(config);
-	std::cout << "GRAMS ERR check hyeb 1" << std::endl; // hyeb
         if (!daqController->initialize()) return 1;
 
         Logger::instance().info("[System] Press Enter to quit");
