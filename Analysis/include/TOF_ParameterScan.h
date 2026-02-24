@@ -11,12 +11,12 @@
 class TOF_ParameterScan: public TObject
 {
 	public:
-    inline static TOF_ParameterScan * theCalib{nullptr}; 
+    inline static TOF_ParameterScan * theParScan{nullptr}; 
 		static TOF_ParameterScan *getInstance() {
-			if( theCalib == nullptr ) {
-				theCalib = new TOF_ParameterScan;
+			if( theParScan == nullptr ) {
+				theParScan = new TOF_ParameterScan;
 			}
-			return theCalib;
+			return theParScan;
 		}
 
     ~TOF_ParameterScan() = default;

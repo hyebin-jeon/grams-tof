@@ -8,6 +8,7 @@ message("${BMagenta}[============ Entering TOF Scripts C Subdirectory ==========
 set(SOURCES
     src/process_convertStg1ToStg2_impl.cpp
     src/process_tofCoinEvtQA_impl.cpp
+		src/process_tofQA_iridium_impl.cpp
 )
 
 add_library(GramsTofAnalysisScriptsCLib SHARED ${SOURCES})
@@ -27,9 +28,14 @@ target_link_libraries(process_tofCoinEvtQA PRIVATE GramsTofAnalysisScriptsCLib)
 add_executable(process_convertStg1ToStg2 tools/process_convertStg1ToStg2.cpp)
 target_link_libraries(process_convertStg1ToStg2 PRIVATE GramsTofAnalysisScriptsCLib)
 
+# tofQA_iridium
+add_executable(process_tofQA_iridium tools/process_tofQA_iridium.cpp)
+target_link_libraries(process_tofQA_iridium PRIVATE GramsTofAnalysisScriptsCLib)
+
 install(TARGETS GramsTofAnalysisScriptsCLib
                 process_tofCoinEvtQA
                 process_convertStg1ToStg2
+								process_tofQA_iridium
         EXPORT GramsTofLibraryTargets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
