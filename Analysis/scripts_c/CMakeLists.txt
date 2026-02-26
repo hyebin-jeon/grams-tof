@@ -41,6 +41,7 @@ install(TARGETS GramsTofAnalysisScriptsCLib
                 process_tofCoinEvtQA
                 process_convertStg1ToStg2
 								process_tofQA_iridium
+								groundTest_pulse_sync
         EXPORT GramsTofLibraryTargets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib

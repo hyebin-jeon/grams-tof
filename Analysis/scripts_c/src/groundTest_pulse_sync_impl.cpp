@@ -95,11 +95,16 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	//TTimeStamp t_offset( 1*60, 0); 
 	TTimeStamp tmin( t_begin.GetSec(), 0 );
 	TTimeStamp tmax( t_end.GetSec()+1, 0 );
-	int tBin = (tmax.GetSec() - tmin.GetSec()) *2;
+	int tBin = (tmax.GetSec() - tmin.GetSec());
+	TH1D* hdT   = new TH1D("hdT", "dT (us)", 400, -1, 1 );
 	TH1D* hppsA = new TH1D(Form("hpps_ch%03d_J%03d", chA, febS_connID_A), Form("CPU_ch%03d_J%03d", chA, febS_connID_A), tBin, tmin, tmax );
 	TH1D* hppsB = new TH1D(Form("hpps_ch%03d_J%03d", chB, febS_connID_B), Form("CPU_ch%03d_J%03d", chB, febS_connID_B), tBin, tmin, tmax );
-	TH1D* hdT   = new TH1D("hdT", "dT (us)", 400, -1, 1 );
+
 	hdT->GetXaxis()->SetTitle( Form("t (J%03d) - t_ref (J%03d)", febS_connID_B, febS_connID_A) );
+	hppsA->GetXaxis()->SetTitle("CPU time, 1 sec/bin");
+	hppsB->GetXaxis()->SetTitle("CPU time, 1 sec/bin");
+	hppsA->GetYaxis()->SetTitle("Event rate (Hz)");
+	hppsB->GetYaxis()->SetTitle("Event rate (Hz)");
 
 	for( int i=0; i<vTimeA.size(); i++ )
 	{
@@ -142,16 +147,43 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	  	long long dt_sec  = timeB.GetSec()     - timeA.GetSec();
       long long dt_nano = timeB.GetNanoSec() - timeA.GetNanoSec();
       double dT = dt_sec + dt_nano * 1e-9;
-	  	hdT->Fill( dT*1E6 );
+	  	hdT->Fill( dT*1E6 ); // in us
 
 			if( i<100 ) {
 	    cout << Form("[%03d] time_A: (double) %2.5E, (date) %d, (time) %d, (sec) %ld, (nano-sec) %d", i, timeA.AsDouble(), timeA.GetDate(), timeA.GetTime(), timeA.GetSec(), timeA.GetNanoSec() ) << endl;
 	    cout << Form("[%03d] time_B: (double) %2.5E, (date) %d, (time) %d, (sec) %ld, (nano-sec) %d", i, timeB.AsDouble(), timeB.GetDate(), timeB.GetTime(), timeB.GetSec(), timeB.GetNanoSec() ) << endl;
 			}
 		}
-	  hdT->GetXaxis()->SetTimeFormat("%H:%M:%S");
-	  hdT->Draw();
-	  hdT->GetXaxis()->SetNdivisions( 1010 );
+
+		double mean = hdT->GetMean();
+		double sigma = hdT->GetRMS();
+		double factor = 5.0;
+		double xmin  = mean - sigma*factor;
+		double xmax  = mean + sigma*factor;
+		double xrange= xmax - xmin;
+		int    nbins = (int) (xrange/0.005) + 1; // 5 ns/bin due to 200 MHz clock of TDC
+		TH1D* hdT_zoom= new TH1D("hdT_zoom", "dT (us)", nbins, xmin, xmax );
+    hdT_zoom->GetXaxis()->SetTitle( Form("t (J%03d) - t_ref (J%03d), 5ns/bin", febS_connID_B, febS_connID_A) );
+		for( int i=0; i<vTimeA.size(); i++ )
+	  {
+	  	auto timeA = vTimeA.at(i);
+	  	auto timeB = vTimeB.at(i);
+	  	long long dt_sec  = timeB.GetSec()     - timeA.GetSec();
+      long long dt_nano = timeB.GetNanoSec() - timeA.GetNanoSec();
+      double dT = dt_sec + dt_nano * 1e-9;
+	  	hdT_zoom->Fill( dT*1E6 );
+		}
+
+	  //hdT->GetXaxis()->SetTimeFormat("%H:%M:%S");
+	  //hdT->Draw();
+	  //hdT->GetXaxis()->SetNdivisions( 1010 );
+	  //gPad->Modified();
+	  //gPad->Update();
+	  //c1->Print( pdfName.Data() );
+	  
+		hdT_zoom->GetXaxis()->SetTimeFormat("%H:%M:%S");
+	  hdT_zoom->Draw();
+	  hdT_zoom->GetXaxis()->SetNdivisions( 1010 );
 	  gPad->Modified();
 	  gPad->Update();
 	  c1->Print( pdfName.Data() );
