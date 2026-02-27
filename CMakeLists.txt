@@ -31,8 +31,10 @@ endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     option(ENABLE_DAQ "Build DAQ components (FlightOps)" ON)
+    option(ENABLE_GROUND "Build Ground Station components (GroundOps)" ON)
 else()
     option(ENABLE_DAQ "Build DAQ components (FlightOps)" OFF)
+    option(ENABLE_GROUND "Build Ground Station components (GroundOps)" OFF)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -88,8 +90,12 @@ add_subdirectory(Analysis)
 if(ENABLE_DAQ)
     message(STATUS "[Build] DAQ Mode: Configuring FlightOps")
     add_subdirectory(FlightOps)
-else()
-    message(STATUS "[Build] Analysis Mode: Skipping FlightOps.")
+endif()
+
+# Add this block:
+if(ENABLE_GROUND)
+    message(STATUS "[Build] Ground Mode: Configuring GroundOps")
+    add_subdirectory(GroundOps)
 endif()
 
 #install(DIRECTORY ${CMAKE_SOURCE_DIR}/Tool/ DESTINATION ${CMAKE_INSTALL_PREFIX}/Tool)

@@ -29,16 +29,17 @@ void ensure_python_interpreter_is_running() {
 class PythonIntegrationImpl {
 public:
 explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
-        : locals_(),   
-          daq_(daq)    
+        : daq_(daq)    
     {
         // Ensure the interpreter is running before doing anything
         ensure_python_interpreter_is_running();
 
+        locals_ = std::make_unique<pybind11::dict>();
+
         namespace py = pybind11;
         try {
             py::module_::import("grams_tof");
-            locals_["daq"] = py::cast(&daq_, py::return_value_policy::reference);
+            (*locals_)["daq"] = py::cast(&daq_, py::return_value_policy::reference);
             Logger::instance().info("[PythonIntegration] Python workspace initialized.");
         } catch (const std::exception& e) {
             Logger::instance().error("[PythonIntegration] Exception during Python init: {}", e.what());
@@ -47,9 +48,9 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
     }
 
     ~PythonIntegrationImpl() {
-        // Clear the workspace to prevent memory leaks, 
-        // but DO NOT kill the interpreter.
-        locals_.clear(); 
+        if (locals_) {
+            locals_->clear();
+        }
     }
 
     void loadPythonScript(const std::string& filename) {
@@ -64,7 +65,7 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
             buffer << infile.rdbuf();
 
             // STEP 3: Execute in local scope, not the global one
-            py::exec(buffer.str(), py::globals(), locals_);
+            py::exec(buffer.str(), py::globals(), *locals_);
             Logger::instance().info("[PythonIntegration] Loaded Python script: {}", filename);
         } catch (const std::exception& e) {
             Logger::instance().error("[PythonIntegration] Exception during script load: {}", e.what());
@@ -75,7 +76,7 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
         namespace py = pybind11;
         try {
             // Evaluate using our specific locals_ where the script was loaded
-            py::eval(func_name + "()", py::globals(), locals_);
+            py::eval(func_name + "()", py::globals(), *locals_);
         } catch (const std::exception& e) {
             Logger::instance().error("[PythonIntegration] Exception running {} : {}", func_name, e.what());
         }
@@ -203,7 +204,7 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
 private:
     //pybind11::scoped_interpreter guard_;
     GRAMS_TOF_DAQManager& daq_;
-    pybind11::dict locals_; // The per-session "Clean Room"
+    std::unique_ptr<pybind11::dict> locals_;
 };
 
 } // namespace
