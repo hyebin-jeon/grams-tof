@@ -20,7 +20,8 @@ int TOF_ConvertStg1toStg2::setInputPathStg1( const char* fpath )
 };
 
 
-int TOF_ConvertStg1toStg2::addTimestampBranches()
+//int TOF_ConvertStg1toStg2::addTimestampBranches()
+int TOF_ConvertStg1toStg2::addBranches_TSandConnID()
 {
 
 	if( !fStg1->getTTree() ) {
@@ -58,6 +59,9 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
     auto eCoarse   = fStg1->getECoarse()  ;
     auto tFine     = fStg1->getTFine()    ;
     auto eFine     = fStg1->getEFine()    ;
+		
+		auto connID_D  = TOF_ChannelConversion::getInstance()->getConnIdOnFebD( channelID );
+		auto connID_S  = TOF_ChannelConversion::getInstance()->getConnIdOnFebS( channelID );
 
 		long long currT = CLOCKS_IN_A_FRAME * frameID + tCoarse;
 		long long diffT = currT - initialT;
@@ -85,6 +89,8 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
     fStg2->setStepEnd     ( stepEnd   );
     fStg2->setFrameID     ( frameID   );
     fStg2->setChannelID   ( channelID );
+		fStg2->setConnID_FebD ( connID_D  );
+		fStg2->setConnID_FebS ( connID_S  );
     fStg2->setTacID       ( tacID     );
     fStg2->setTCoarse     ( tCoarse   );
     fStg2->setECoarse     ( eCoarse   );
@@ -98,6 +104,42 @@ int TOF_ConvertStg1toStg2::addTimestampBranches()
   
 	return TOF_GOOD;
 }
+
+//int TOF_ConvertStg1toStg2::addConnIdBranches()
+//{
+//
+//	if( !fStg1->getTTree() ) {
+//		std::cerr << "[ERR] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1->getTTree() is NULL." << std::endl;
+//		return TOF_ERR;
+//	}
+//
+//	if( fStg1->getEntries() == 0 ) {
+//		std::cout << "[WARN] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1 entries = 0." << std::endl;
+//		return TOF_ERR;
+//	}
+//
+//	fStg1->setBranchStatus("channelID",1); // duplicate
+//	fStg1->setBranchAddress(); // duplicate
+//
+//	//fStg2->makeBranches();
+//
+//	for( int i=0; i<fStg1->getEntries(); i++ )
+//	{
+//		fStg1->getEntry(i);
+//
+//    auto channelID = fStg1->getChannelID();
+//		auto connID_D  = TOF_ChannelConversion::getInstance()->getConnIdOnFebD( channelID );
+//		auto connID_S  = TOF_ChannelConversion::getInstance()->getConnIdOnFebS( channelID );
+//
+//		fStg2->setConnID_FebD( connID_D );
+//		fStg2->setConnID_FebS( connID_S );
+//
+//		//fStg2->fillTTree();
+//	}
+//
+//	return TOF_GOOD;
+//}
+
 
 
 void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2 )
@@ -116,7 +158,9 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	}
 
 	fStg2->setOutputPath( kPathStg2, "recreate" );
-	addTimestampBranches();
+	//fStg2->makeBranches();
+	//addTimestampBranches();
+	addBranches_TSandConnID();
 	fStg2->getTTree()->Write();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
 	fStg2->closeTFile();

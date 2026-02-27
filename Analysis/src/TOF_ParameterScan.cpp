@@ -6,7 +6,7 @@ void TOF_ParameterScan::readParamScanTable( const char* fname )
 {
   std::ifstream fin( fname );
 	if( ! fin.is_open() ) {
-		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
+		std::cout<< Form( "[ERR] Parameter scan file does not exist.Exit(): %s", fname ) << std::endl;
 		return;
 	}
 

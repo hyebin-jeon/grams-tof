@@ -95,8 +95,8 @@ class TOF_TreeDataStg1 : public TObject
 	public:
 		Long64_t getEntries() { return fTTree->GetEntries(); };
 		Int_t 	 getEntry( Long64_t entry, Int_t getall=0) { return fTTree->GetEntry( entry ); };
-		void             resetBranchAddresses() { fTTree->ResetBranchAddresses(); };
-		Int_t            fillTTree() { return fTTree->Fill(); };
+		void     resetBranchAddresses() { fTTree->ResetBranchAddresses(); };
+		Int_t    fillTTree() { return fTTree->Fill(); };
 
 
 	ClassDef(TOF_TreeDataStg1, 1)
