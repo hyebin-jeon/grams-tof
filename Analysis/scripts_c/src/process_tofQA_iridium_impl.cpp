@@ -27,9 +27,11 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	if( theChanConv->readActiveAsicList(asicListFile.c_str())!= TOF_GOOD ) return false;
 	auto activeConnIds_D = theChanConv->getActiveConnIdOnFebD();
 	
-	const int nb = 2;
+	const int nconn = 2; // number of connected FEB-S
+	const int nsyst  = 2; // number of system TTOF, MTOF, MPD
+	const int npad[3] = { fTTOF_NbChannels, fMTOF_NbChannels, fMPD_NbChannels };
 
-	if( activeConnIds_D.size() != nb ) {
+	if( activeConnIds_D.size() != nconn ) {
 		std::cerr << "[WARN] Number of Active Asic ConnectorID List != 2" << std::endl;
 	}
 
@@ -56,16 +58,18 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	/// histograms
 	int timeRange = tmax - tmin;
 	int timeBinNb  = timeRange%10? timeRange/10+1 : timeRange/10;
-	TH1F* hEvtChan[nb];
-	TH1F* hEvtTime[nb];
-	for( int i=0; i<nb; i++ )
+	TH1F* hEvtChan[nsyst];
+	TH1F* hEvtTime[nconn];
+	for( int i=0; i<nsyst; i++ )
 	{
-	  hEvtChan[i] = new TH1F(Form("hEvtChan%d",i), Form("Channel vs. Event rate (FebD_%02d)", activeConnIds_D[i]), 128, 1, 129 );
-	  hEvtTime[i] = new TH1F(Form("hEvtTime%d",i), Form("CPU time vs. Event rate (FebD_%02d)", activeConnIds_D[i]), timeBinNb, tmin, tmax); // 1800 sec = 40 min, 1 bin per 10 sec
-
-		hEvtChan[i]->GetXaxis()->SetTitle("connector ID on FEB-S");
-		hEvtTime[i]->GetXaxis()->SetTitle("CPU time (UTC), 10 sec/bin");
+	  hEvtChan[i] = new TH1F(Form("hEvtChan%d",i), Form("PaddleID vs. Event rate (FebD_%02d)", activeConnIds_D[i]), npad[i], 0, npad[i] );
+		hEvtChan[i]->GetXaxis()->SetTitle("Paddle ID (NS)");
 		hEvtChan[i]->GetYaxis()->SetTitle("Event rate (Hz)");
+	}
+	for( int i=0; i<nconn; i++ )
+	{
+	  hEvtTime[i] = new TH1F(Form("hEvtTime%d",i), Form("CPU time vs. Event rate (FebD_%02d)", activeConnIds_D[i]), timeBinNb, tmin, tmax); // 1800 sec = 40 min, 1 bin per 10 sec
+		hEvtTime[i]->GetXaxis()->SetTitle("CPU time (UTC), 10 sec/bin");
 		hEvtTime[i]->GetYaxis()->SetTitle("Event rate (Hz)");
 	}
 
@@ -77,14 +81,17 @@ bool runTofQA_Iridium( const std::string& inputFile,
 		auto ts_pps   = stg2->getTimeStampPPS();
 		auto connID_D = stg2->getConnID_FebD();
 		auto connID_S = stg2->getConnID_FebS();
+		auto paddleID = stg2->getPaddleID();
 
-		for( int j=0; j<nb; j++ )
-		{
-		  if( connID_D != activeConnIds_D[j] ) continue;
+		if( connID_D != activeConnIds_D[j] ) continue;
 			
-			hEvtChan[j]->Fill( connID_S, 1./ runTimeSec );
-			//hEvtChan[j]->Fill( connID_S );
+		for( int j=0; j<nconn; j++ )
+		{
 			hEvtTime[j]->Fill( ts_pps.AsDouble(), 1./(double)binW );
+		}
+		for( int j=0; j<nsyst; j++ )
+		{
+			hEvtChan[j]->Fill( paddleID, 1./ runTimeSec );
 		}
 	}
 
@@ -105,10 +112,10 @@ bool runTofQA_Iridium( const std::string& inputFile,
 
 	TCanvas* canv0 = new TCanvas("canv0", "canv0"); //, 1100, 500);
 	canv0->Print( Form("%s[", fout_pdf) ); // open 
-	canv0->Divide(nb,2,0.005,0.005);
+	canv0->Divide(nconn,2,0.005,0.005);
 
 	gStyle->SetOptStat(111111);
-	for( int j=0; j<nb; j++ )
+	for( int j=0; j<nconn; j++ )
 	{
 	  /// scale the histo to make y axis = event rate
 		//hEvtChan[j]->Scale( 1./(double) runTimeSec );
