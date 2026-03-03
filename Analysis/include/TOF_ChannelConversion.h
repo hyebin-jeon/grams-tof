@@ -25,7 +25,7 @@ class TOF_ChannelConversion : public TObject
   	};
   
   	~TOF_ChannelConversion() = default;
-
+		
 	private: 
 		/// map between connector ID on FEB/S (J1-J128) and channel ID on the software (ch0-ch127)
 		std::map<uint8_t, uint8_t> fMap_ConnIdToChannelId;

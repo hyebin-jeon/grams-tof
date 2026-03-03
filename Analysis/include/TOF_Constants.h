@@ -1,5 +1,8 @@
 #pragma once
 
+#define TOF_GOOD 1
+#define TOF_WARNING -1
+#define TOF_ERR -2
 
 #define CLOCKS_IN_A_FRAME 1024
 
@@ -27,7 +30,17 @@ const double fTOF_TdcClkFreq = 200E6; // 200 MHz
 const double fTOF_TdcClkPer = 1./fTOF_TdcClkFreq; // period in sec
 const double fTOF_TdcClkPerNs = fTOF_TdcClkPer * 1E9; // period in nsec
 
-#define TOF_GOOD 1
-#define TOF_WARNING -1
-#define TOF_ERR -2
+/// number of channels, paddles
+const int fTOF_NbChannelsPerAsic{ 64};
+const int fTOF_NbChannelsPerFebS{128};
+const int fTOF_NbChannelsAll    {202}; // 200 sipm channels + 1 pps + 1 tpc trg
+const int fTTOF_NbPaddles       { 24};
+const int fMTOF_NbPaddles       { 16};
+const int fMPD_NbPaddles        { 20};
+const int fTTOF_NbChannelPerEnd {  1};
+const int fMTOF_NbChannelPerEnd {  1};
+const int fMPD_NbChannelPerEnd  {  3};
+const int fTTOF_NbChannels      { fNbPaddles_TTOF*fNbChannelsPerEnd_TTOF };
+const int fMTOF_NbChannels      { fNbPaddles_MTOF*fNbChannelsPerEnd_MTOF };
+const int fMPD_NbChannels       { fNbPaddles_MPD *fNbChannelsPerEnd_MPD  };
 
