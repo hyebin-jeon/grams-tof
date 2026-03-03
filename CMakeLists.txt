@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Silence policy warnings
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW) # Use upper-case _ROOT variables
+endif()
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW) # Acknowledge FindBoost deprecation
+endif()
+
 project(grams-tof-library VERSION 1.0)
 
 include(Common/cmake/root_tools.cmake)

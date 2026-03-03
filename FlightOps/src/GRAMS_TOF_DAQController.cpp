@@ -40,7 +40,10 @@ void GRAMS_TOF_DAQController::setupSystemFiles() {
 // Constructor Implementation
 GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
     : config_(config),
-      daq_("/tmp/d.sock", "/daqd_shm", 0, "GBE", {"/dev/psdaq0"}),
+      //daq_("/tmp/d.sock", "/daqd_shm", 0, "GBE", {"/dev/psdaq0"}),
+      daq_( ("/run/user/" + std::to_string(getuid()) + "/d.sock").c_str(), 
+            ("/daqd_shm_" + std::to_string(getuid())).c_str(), 
+            0, "GBE", {"/dev/psdaq0"}),
       pyint_(daq_),
       eventClient_(std::make_unique<GRAMS_TOF_EventClient>(
           config.remoteEventHub, 
