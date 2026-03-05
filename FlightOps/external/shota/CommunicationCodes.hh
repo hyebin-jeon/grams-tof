@@ -89,8 +89,6 @@ enum class CommunicationCodes : uint16_t {
   TOF_Run_Convert_Stg1_To_Stg2 = construct_code(0x300, COM_SUBSYSTEM_TOF_MSK),
   TOF_Run_Process_TOF_Coin_Evt_QA = construct_code(0x301, COM_SUBSYSTEM_TOF_MSK),
   TOF_Run_Process_TOF_QA_Iridium = construct_code(0x302, COM_SUBSYSTEM_TOF_MSK),
-  
-  TOF_Monitor_Data_Stream = construct_code(0x400, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_ACK       = construct_code(0xFFF, COM_SUBSYSTEM_TOF_MSK), // DEBUG: new 
   TOF_Callback  = construct_code(0xFFE, COM_SUBSYSTEM_TOF_MSK), // DEBUG: new 
@@ -109,7 +107,8 @@ inline bool isSubsystem(uint16_t code, uint16_t subsystem_mask) {
 }
 
 enum class TelemetryCodes : uint16_t {
-  HUB_Telemetry_Normal = 0x0,
+  HUB_Telemetry_Normal = construct_code(0x0, COM_SUBSYSTEM_HUB_MSK),
+  TOF_Monitor_Data_Stream = construct_code(0x400, COM_SUBSYSTEM_TOF_MSK)
 };
 } // namespace pgrams::communication
 

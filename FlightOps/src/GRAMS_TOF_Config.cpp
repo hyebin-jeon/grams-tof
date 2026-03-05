@@ -131,7 +131,7 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
     const std::string& absDir,
     const std::string& prefix,
     const std::string& timestamp,
-    const std::string& suffix) const
+    const std::string& ext) const
 {
     namespace fs = std::filesystem;
 
@@ -139,7 +139,7 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
     if (!fs::exists(dir) || !fs::is_directory(dir))
         throw std::runtime_error("Directory does not exist: " + dir.string());
 
-    std::string pattern = prefix + "_" + timestamp + suffix + R"(.*)";
+    std::string pattern = prefix + "_" + timestamp + R"(.*)" + ext;
     std::regex re(pattern);
 
     for (const auto& entry : fs::directory_iterator(dir)) {
@@ -152,7 +152,7 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
 
     throw std::runtime_error(
         "No file found for timestamp " + timestamp + 
-        " with suffix '" + suffix + "' in " + dir.string()
+        " with ext'" + ext + "' in " + dir.string()
     );
 }
 

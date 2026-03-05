@@ -123,7 +123,10 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA:          return CommunicationCodes::TOF_Run_Process_TOF_Coin_Evt_QA;
         case TOFCommandCode::RUN_PROCESS_TOF_QA_IRIDIUM:           return CommunicationCodes::TOF_Run_Process_TOF_QA_Iridium;
 
-        case TOFCommandCode::MONITOR_DATA_STREAM:                  return CommunicationCodes::TOF_Monitor_Data_Stream;
+        case TOFCommandCode::MONITOR_DATA_STREAM:                  return static_cast<pgrams::communication::CommunicationCodes>(
+                                                                       pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream
+                                                                   );
+
 
         case TOFCommandCode::ACK:                                  return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                             return CommunicationCodes::TOF_Callback;
@@ -165,7 +168,8 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Run_Process_TOF_Coin_Evt_QA:          return TOFCommandCode::RUN_PROCESS_TOF_COIN_EVT_QA;
         case CommunicationCodes::TOF_Run_Process_TOF_QA_Iridium:           return TOFCommandCode::RUN_PROCESS_TOF_QA_IRIDIUM;
 
-        case CommunicationCodes::TOF_Monitor_Data_Stream:                  return TOFCommandCode::MONITOR_DATA_STREAM;
+        case static_cast<pgrams::communication::CommunicationCodes>(
+          pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream): return TOFCommandCode::MONITOR_DATA_STREAM;
 
         case CommunicationCodes::TOF_ACK:                                  return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                             return TOFCommandCode::CALLBACK;
