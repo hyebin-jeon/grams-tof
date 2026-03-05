@@ -503,7 +503,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF Quality Assurance for Iridium...");
             bool output = analyzer_.runPetsysProcessTofQAIridium(
-                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
+                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
 								config.getHistDir(),
 								config.getString("main", "active_asic_list") /// hyeb - this is new
             );
