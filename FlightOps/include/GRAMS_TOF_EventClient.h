@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GRAMS_TOF_CommandCodec.h"
+#include "GRAMS_TOF_MonitorCodec.h"
 #include "GRAMS_TOF_Client.h"
 #include "GRAMS_TOF_FDManager.h"
 
@@ -29,6 +30,7 @@ public:
     GRAMS_TOF_EventClient& operator=(const GRAMS_TOF_EventClient&) = delete;
 
     bool isConnected() const;
+    bool sendMonitorData(TOFCommandCode code, const GRAMS_TOF_MonitorCodec::MonitorData& data);
 
 private:
     void run();  // Main client connection/read loop

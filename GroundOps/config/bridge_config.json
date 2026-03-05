@@ -1,0 +1,13 @@
+{
+    "mysql": {
+        "host": "127.0.0.1",
+        "user": "daq",
+        "password": "tof_monitor_secure",
+        "database": "grams"
+    },
+    "mqtt": {
+        "broker": "localhost",
+        "port": 1883,
+        "topic": "grams/tof/monitor"
+    }
+}

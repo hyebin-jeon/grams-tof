@@ -33,7 +33,16 @@ PROTOCOL_VERSION = 0x102
 class Connection:
 	## Constructor
 	def __init__(self):
-		socketPath = "/tmp/d.sock"
+		#socketPath = "/tmp/d.sock"
+
+		uid = os.getuid()
+		uid_path = f"/run/user/{uid}"
+		# Check if /run/user/UID exists, if not fallback to /tmp
+		if os.path.exists(uid_path):
+			socketPath = f"{uid_path}/d.sock"
+		else:
+			socketPath = "/tmp/d.sock"
+
 		self.__systemFrequency = 200E6
 
 		# Open socket to daqd

@@ -1,6 +1,7 @@
 #include "GRAMS_TOF_CommandDispatch.h"
 #include "GRAMS_TOF_Logger.h"
 #include "GRAMS_TOF_Config.h"
+#include "GRAMS_TOF_RootConverter.h"
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -501,11 +502,31 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::RUN_PROCESS_TOF_QA_IRIDIUM, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF Quality Assurance for Iridium...");
-            return analyzer_.runPetsysProcessTofQAIridium(
+            bool output = analyzer_.runPetsysProcessTofQAIridium(
                 config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
 								config.getHistDir(),
 								config.getString("main", "active_asic_list") /// hyeb - this is new
             );
+
+            if (!output) {
+                Logger::instance().error("[GRAMS_TOF_CommandDispatch] Failed ");
+                return false;
+            } 
+
+            auto path = config.getFileByTimestamp(config.getHistDir(), "run", timestampStr, "iridiumQA.root");
+            auto monitorDataList = GRAMS_TOF_RootConverter::scanFile(path, 0);
+
+            if (monitorDataList.empty()) {
+                Logger::instance().error("[GRAMS_TOF_CommandDispatch] No histograms found or file missing: {}", path);
+                return false;
+            }
+
+            for (const auto& data : monitorDataList) {
+                eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data); 
+            }
+
+            Logger::instance().info("[GRAMS_TOF_CommandDispatch] Successfully streamed {} histograms.", monitorDataList.size());
+            return true;
         });
     };
 
