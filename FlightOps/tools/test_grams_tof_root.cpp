@@ -110,15 +110,19 @@ void reconstructFromBinaries(const std::string& outputRoot)
 
 int main(int argc, char** argv) 
 {
-    if (argc < 2) {
-        std::cout << "Usage: ./final_test <mode>\nModes: 0 (Gen), 1 (Convert), 2 (Reconstruct)\n";
+    if (argc < 4) {
+        std::cout << "Usage: ./test_grams_tof_root <mode> <root_file> <sub>\n"
+                  << "Modes: 0 (Gen), 1 (Convert), 2 (Reconstruct)\n";
         return 1;
     }
 
     int mode = std::atoi(argv[1]);
-    if      (mode == 0) generateDummyRoot("run_2026-02-05_00-31-07.198Z.stg2.coin.root");
-    else if (mode == 1) convertRootToBinaries("run_2026-02-05_00-31-07.198Z.stg2.coin.root", 20260210);
-    else if (mode == 2) reconstructFromBinaries("run_2026-02-05_00-31-07.198Z.stg2.coin_recon.root");
+    const char* rootFile = argv[2];
+    int sub  = std::atoi(argv[3]);
+
+    if      (mode == 0) generateDummyRoot(rootFile);
+    else if (mode == 1) convertRootToBinaries(rootFile, sub);
+    else if (mode == 2) reconstructFromBinaries(rootFile);
     
     return 0;
 }
