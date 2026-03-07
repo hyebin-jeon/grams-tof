@@ -1,0 +1,23 @@
+(Run Setup)
+source grams_tof_ground_env.sh 
+sudo -E python3 ground/bin/setup_db.py
+
+(Run bridge)
+sudo systemctl daemon-reload
+sudo systemctl restart tof-bridge
+
+(Monitor)
+systemctl status tof-bridge
+tail -f $TOFDATA/ground_bridge.log
+
+(Check)
+mysql -u pgrams_user -p -D grams_tof -e "SELECT hname, COUNT(*) FROM tof_monitor GROUP BY hname;"
+
+(Wipe the current data)
+mysql -u pgrams_user -p -D grams_tof -e "TRUNCATE TABLE tof_monitor;"
+
+(Install tof-bridge.service)
+sudo ln -s ground/systemd/tof-bridge.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable tof-bridge
+sudo systemctl start tof-bridge

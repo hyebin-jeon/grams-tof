@@ -4,15 +4,15 @@
 #export PGRAMS_MOSQUITTO_HOST=10.150.111.190 #from Shota
 export PGRAMS_MOSQUITTO_HOST="localhost"
 export PGRAMS_MOSQUITTO_PORT=1883
-export PGRAMS_MOSQUITTO_TOPIC="grams/tof/monitor"
+export PGRAMS_MOSQUITTO_TOPIC="TOF_ground_telemetry"
 export PGRAMS_MOSQUITTO_USER=""
 export PGRAMS_MOSQUITTO_PASSWD=""
 
 # --- MySQL Configuration ---
 export TOF_MYSQL_HOST="127.0.0.1"
-export TOF_MYSQL_USER="daq"
-export TOF_MYSQL_DB="grams"
-export TOF_MYSQL_PASS="tof_monitor_secure " 
+export TOF_MYSQL_USER="pgrams_user"
+export TOF_MYSQL_DB="grams_tof"
+export TOF_MYSQL_PASS="pgrams_user"
 
 # --- Project Paths ---
 export GLIB=$HOME/work/source/grams-tof/00build/00install
