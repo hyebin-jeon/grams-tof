@@ -95,21 +95,34 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	//TTimeStamp t_offset( 1*60, 0); 
 	TTimeStamp tmin( t_begin.GetSec(), 0 );
 	TTimeStamp tmax( t_end.GetSec()+1, 0 );
-	int tBin = (tmax.GetSec() - tmin.GetSec());
+	int tBin = (tmax.GetSec() - tmin.GetSec())*10;
 	TH1D* hdT   = new TH1D("hdT", "dT (us)", 400, -1, 1 );
 	TH1D* hppsA = new TH1D(Form("hpps_ch%03d_J%03d", chA, febS_connID_A), Form("CPU_ch%03d_J%03d", chA, febS_connID_A), tBin, tmin, tmax );
 	TH1D* hppsB = new TH1D(Form("hpps_ch%03d_J%03d", chB, febS_connID_B), Form("CPU_ch%03d_J%03d", chB, febS_connID_B), tBin, tmin, tmax );
 
 	hdT->GetXaxis()->SetTitle( Form("t (J%03d) - t_ref (J%03d)", febS_connID_B, febS_connID_A) );
-	hppsA->GetXaxis()->SetTitle("CPU time, 1 sec/bin");
-	hppsB->GetXaxis()->SetTitle("CPU time, 1 sec/bin");
-	hppsA->GetYaxis()->SetTitle("Event rate (Hz)");
-	hppsB->GetYaxis()->SetTitle("Event rate (Hz)");
+	hppsA->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
+	hppsB->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
+	hppsA->GetYaxis()->SetTitle("Events");
+	hppsB->GetYaxis()->SetTitle("Events");
+	//hppsA->GetYaxis()->SetTitle("Event rate (Hz)");
+	//hppsB->GetYaxis()->SetTitle("Event rate (Hz)");
 
+	UInt_t hour, min, second;
 	for( int i=0; i<vTimeA.size(); i++ )
 	{
 		auto timeA = vTimeA.at(i);
 		hppsA->Fill( timeA.AsDouble() );
+	
+		if( i==0 ) continue;
+		auto tdiff = vTimeA.at(i) - vTimeA.at(i-1);
+
+		timeA.GetTime( hour, min, second );
+		auto nano = timeA.GetNanoSec();
+		auto mili = nano/1E6;
+
+		if( tdiff < 0.5 ) std::cout << "tdiff: " << tdiff << Form(", time1: %02u:%02u:%02u.%03u %09u",  hour, min, second, mili, nano) << endl; 
+
 	}
 	for( int i=0; i<vTimeB.size(); i++ )
 	{
@@ -131,12 +144,15 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	hppsA->GetXaxis()->SetNdivisions( 1010 );
 	gPad->Modified();
 	gPad->Update();
+	gPad->SetLogy();
 	c1->Print( pdfName.Data() );
 	hppsB->Draw();
 	hppsB->GetXaxis()->SetNdivisions( 1010 );
 	gPad->Modified();
 	gPad->Update();
+	gPad->SetLogy();
 	c1->Print( pdfName.Data() );
+	gPad->SetLogy(0);
 
 	if( vTimeA.size() == vTimeB.size() )
 	{
