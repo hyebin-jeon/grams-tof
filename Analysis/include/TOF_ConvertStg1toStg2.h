@@ -41,8 +41,7 @@ class TOF_ConvertStg1toStg2 : public TObject
 
 	public: 
 		int  setInputPathStg1( const char* fpath );
-		int  addBranches_TSandConnID();
-		//int  addConnIdBranches();
+		int  addBranches();
 		void convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2="" );
 		TOF_TreeDataStg1* getStg1() {return fStg1; };
 		TOF_TreeDataStg2* getStg2() {return fStg2; };

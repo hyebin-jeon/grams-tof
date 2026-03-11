@@ -15,13 +15,15 @@
 class TOF_ChannelConversion : public TObject
 {
   public:
-    inline static TOF_ChannelConversion * theChanCov{nullptr}; 
+    inline static TOF_ChannelConversion * theChanConv{nullptr}; 
   	static TOF_ChannelConversion *getInstance() {
-  		if( theChanCov == nullptr ) {
-  			theChanCov = new TOF_ChannelConversion;
+  		if( theChanConv == nullptr ) {
+  			theChanConv = new TOF_ChannelConversion;
   		}
+
+			theChanConv->fillChannelMaps();
   
-  		return theChanCov;
+  		return theChanConv;
   	};
   
   	~TOF_ChannelConversion() = default;

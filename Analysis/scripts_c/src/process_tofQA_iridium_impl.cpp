@@ -83,7 +83,8 @@ bool runTofQA_Iridium( const std::string& inputFile,
 		auto connID_S = stg2->getConnID_FebS();
 		auto paddleID = stg2->getPaddleID();
 
-		if( connID_D != activeConnIds_D[j] ) continue;
+		if( connID_D != activeConnIds_D[0] ) continue;
+		if( connID_D != activeConnIds_D[1] ) continue;
 			
 		for( int j=0; j<nconn; j++ )
 		{

@@ -380,7 +380,7 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
 	else if( febD == fFebD_connID1 ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
-	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
 
 	return phyID;
 }
@@ -392,7 +392,7 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS
 	else if( febD == fFebD_connID1 ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
-	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
 
 	return phyID;
 }
@@ -408,7 +408,7 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t portID, uint8_t sl
 	else if( febD == fFebD_connID1 ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
-	uint16_t phyID = static_cast<uint16_t>( febD ) * 128 + febS;
+	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
 
 	return phyID;
 }

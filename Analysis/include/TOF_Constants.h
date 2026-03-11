@@ -37,10 +37,10 @@ const int fTOF_NbChannelsAll    {202}; // 200 sipm channels + 1 pps + 1 tpc trg
 const int fTTOF_NbPaddles       { 24};
 const int fMTOF_NbPaddles       { 16};
 const int fMPD_NbPaddles        { 20};
-const int fTTOF_NbChannelPerEnd {  1};
-const int fMTOF_NbChannelPerEnd {  1};
-const int fMPD_NbChannelPerEnd  {  3};
-const int fTTOF_NbChannels      { fNbPaddles_TTOF*fNbChannelsPerEnd_TTOF };
-const int fMTOF_NbChannels      { fNbPaddles_MTOF*fNbChannelsPerEnd_MTOF };
-const int fMPD_NbChannels       { fNbPaddles_MPD *fNbChannelsPerEnd_MPD  };
+const int fTTOF_NbChannelsPerEnd {  1};
+const int fMTOF_NbChannelsPerEnd {  1};
+const int fMPD_NbChannelsPerEnd  {  3};
+const int fTTOF_NbChannels      { fTTOF_NbPaddles*fTTOF_NbChannelsPerEnd};
+const int fMTOF_NbChannels      { fMTOF_NbPaddles*fMTOF_NbChannelsPerEnd};
+const int fMPD_NbChannels       { fMPD_NbPaddles *fMPD_NbChannelsPerEnd };
 

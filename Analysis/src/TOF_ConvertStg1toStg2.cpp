@@ -20,8 +20,7 @@ int TOF_ConvertStg1toStg2::setInputPathStg1( const char* fpath )
 };
 
 
-//int TOF_ConvertStg1toStg2::addTimestampBranches()
-int TOF_ConvertStg1toStg2::addBranches_TSandConnID()
+int TOF_ConvertStg1toStg2::addBranches()
 {
 
 	if( !fStg1->getTTree() ) {
@@ -33,6 +32,8 @@ int TOF_ConvertStg1toStg2::addBranches_TSandConnID()
 		std::cout << "[WARN] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1 entries = 0." << std::endl;
 		return TOF_ERR;
 	}
+
+	auto theChanConv = TOF_ChannelConversion::getInstance();
 
 	fStg1->setBranchAddress(); // duplicate
 	fStg1->getEntry(0);
@@ -59,9 +60,13 @@ int TOF_ConvertStg1toStg2::addBranches_TSandConnID()
     auto eCoarse   = fStg1->getECoarse()  ;
     auto tFine     = fStg1->getTFine()    ;
     auto eFine     = fStg1->getEFine()    ;
-		
-		auto connID_D  = TOF_ChannelConversion::getInstance()->getConnIdOnFebD( channelID );
-		auto connID_S  = TOF_ChannelConversion::getInstance()->getConnIdOnFebS( channelID );
+	
+		/// physical channel ID (connector IDs)
+		auto connID_D  = theChanConv->getConnIdOnFebD( channelID );
+		auto connID_S  = theChanConv->getConnIdOnFebS( channelID );
+
+		/// paddle IDs
+		//auto systID = theChanConv->getSystemID();
 
 		long long currT = CLOCKS_IN_A_FRAME * frameID + tCoarse;
 		long long diffT = currT - initialT;
@@ -158,9 +163,7 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	}
 
 	fStg2->setOutputPath( kPathStg2, "recreate" );
-	//fStg2->makeBranches();
-	//addTimestampBranches();
-	addBranches_TSandConnID();
+	addBranches();
 	fStg2->getTTree()->Write();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
 	fStg2->closeTFile();
