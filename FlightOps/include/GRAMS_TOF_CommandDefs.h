@@ -34,6 +34,8 @@ enum class TOFCommandCode : uint16_t {
 
     MONITOR_DATA_STREAM              = 0x5400,
 
+    MACRO_THERMAL_CALIB              = 0x5500,
+
     ACK                              = 0x5FFF,
     CALLBACK                         = 0x5FFE,
     STATUS                           = 0x5FFD,
@@ -78,6 +80,8 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::PROCESS_QA_IRIDIUM:               return os << "PROCESS_QA_IRIDIUM";
         
         case TOFCommandCode::MONITOR_DATA_STREAM:              return os << "MONITOR_DATA_STREAM";
+ 
+        case TOFCommandCode::MACRO_THERMAL_CALIB:              return os << "MACRO_THERMAL_CALIB";
 
         case TOFCommandCode::ACK:                              return os << "ACK";
         case TOFCommandCode::CALLBACK:                         return os << "CALLBACK";
@@ -126,6 +130,8 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::MONITOR_DATA_STREAM:              return static_cast<pgrams::communication::CommunicationCodes>(
                                                                    pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream);
 
+        case TOFCommandCode::MACRO_THERMAL_CALIB:              return CommunicationCodes::TOF_Macro_Thermal_Calib;
+
         case TOFCommandCode::ACK:                              return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                         return CommunicationCodes::TOF_Callback;
         case TOFCommandCode::DUMMY_TEST:                       return CommunicationCodes::TOF_DummyTest;
@@ -168,6 +174,8 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
 
         case static_cast<pgrams::communication::CommunicationCodes>(
           pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream): return TOFCommandCode::MONITOR_DATA_STREAM;
+
+        case CommunicationCodes::TOF_Macro_Thermal_Calib:              return TOFCommandCode::MACRO_THERMAL_CALIB;
 
         case CommunicationCodes::TOF_ACK:                              return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                         return TOFCommandCode::CALLBACK;
