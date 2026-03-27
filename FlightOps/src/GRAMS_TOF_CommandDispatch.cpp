@@ -4,6 +4,7 @@
 #include "GRAMS_TOF_RootConverter.h"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <filesystem>
 
 GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     GRAMS_TOF_PythonIntegration& pyint,
@@ -210,6 +211,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     // READ_TEMPERATURE_SENSORS
     table_[TOFCommandCode::READ_TEMPERATURE_SENSORS] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
+            auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing read_temperature_sensors.py script...");
             std::vector<std::string> sArgs;
             sArgs.push_back("--time");
@@ -217,7 +219,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             sArgs.push_back("--interval");
             sArgs.push_back(std::to_string(argv.size() > 1 ? static_cast<double>(argv[1]) : 60.0));
             sArgs.push_back("-o");
-            sArgs.push_back("/dev/null");
+            sArgs.push_back(config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors", timestampStr, "log"));
             bool startup = (argv.size() > 2) ? (argv[2] != 0) : true;
             if (startup) sArgs.push_back("--startup");
             bool debug = (argv.size() > 3) ? (argv[3] != 0) : false;
@@ -381,7 +383,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 config.makeFilePathWithTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv"),
                 config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr, "root")
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getDiscDir(), "disc_calibration", timestampStr),
+            config.copyOrLink(config.getFileByTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv"),
                               config.getAbsolutePath("main", "disc_calibration_table"), true);
             return output;
         });
@@ -404,7 +406,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 keepTmp,
                 nominalM
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr),
+            config.copyOrLink(config.getFileByTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr, "tsv"),
                               config.getAbsolutePath("main", "tdc_calibration_table"), true);
             return output;
         });
@@ -427,7 +429,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 keepTmp,
                 nominalM
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr),
+            config.copyOrLink(config.getFileByTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr, "tsv"),
                               config.getAbsolutePath("main", "qdc_calibration_table"), true);
             return output;
         });
@@ -526,6 +528,66 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             }
 
             Logger::instance().info("[GRAMS_TOF_CommandDispatch] Successfully streamed {} histograms.", monitorDataList.size());
+            return true;
+        });
+    };
+
+    //  MACRO_THERMAL_CALIB
+    table_[TOFCommandCode::MACRO_THERMAL_CALIB] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_THERMAL_CALIB, [&]() {
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Starting 10-step Thermal Calib Sequence...");
+
+            // ---------------------------------------------------
+            //Redirect all DAQ file outputs to this folder 
+            std::string timestamp = config.getCurrentTimestamp();
+            std::string vaultDir = config.getTOFDataDir() + "/vault/thermal_calib/run_" + timestamp; 
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Initializing Thermal Vault: {}", vaultDir);
+            try {
+                std::filesystem::create_directories(vaultDir);
+            } catch (const std::exception& e) {
+                Logger::instance().error("[Macro] Could not create vault: {}", e.what());
+                return false;
+            }
+            config.setVaultPath(vaultDir);
+            // ---------------------------------------------------
+ 
+            std::vector<TOFCommandCode> sequence = {
+                TOFCommandCode::STOP_DAQ,
+                TOFCommandCode::START_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
+                TOFCommandCode::PROCESS_TDC_CALIBRATION,
+                TOFCommandCode::PROCESS_QDC_CALIBRATION
+            };
+    
+            for (auto cmd : sequence) {
+                Logger::instance().info("[GRAMS_TOF_CommandDispatch:Macro] Executing step: 0x{:04X}", static_cast<uint16_t>(cmd));
+                
+                if (!this->dispatch(cmd, {})) {
+                    Logger::instance().error("[GRAMS_TOF_CommandDispatch:Macro] Step 0x{:04X} failed. Aborting macro.", static_cast<uint16_t>(cmd));
+                    return false;
+                }
+    
+                bool is_running = true;
+                while (is_running) {
+                    std::this_thread::sleep_for(std::chrono::seconds(2));
+                    std::lock_guard<std::mutex> lock(pidMutex_);
+                    is_running = false;
+                    for (auto const& [pid, code] : activeBackgroundPIDs_) {
+                        if (code == cmd) {
+                            is_running = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            config.clearVaultPath();
+ 
+            Logger::instance().info("[GRAMS_TOF_CommandDispatch] All Thermal Calib steps completed successfully.");
             return true;
         });
     };

@@ -115,6 +115,8 @@ enum class CommunicationCodes : uint16_t {
   TOF_Process_QA_Coin                  = construct_code(0x301, COM_SUBSYSTEM_TOF_MSK),
   TOF_Process_QA_Iridium               = construct_code(0x302, COM_SUBSYSTEM_TOF_MSK),
 
+  TOF_Macro_Thermal_Calib              = construct_code(0x500, COM_SUBSYSTEM_TOF_MSK),
+
   TOF_ACK                              = construct_code(0xFFF, COM_SUBSYSTEM_TOF_MSK),
   TOF_Callback                         = construct_code(0xFFE, COM_SUBSYSTEM_TOF_MSK),
   TOF_Status                           = construct_code(0xFFD, COM_SUBSYSTEM_TOF_MSK),
