@@ -34,6 +34,12 @@ GRAMS_TOF_CommandClient::~GRAMS_TOF_CommandClient() {
 
 void GRAMS_TOF_CommandClient::start() {
     if (running_) return;
+
+    {
+        std::lock_guard<std::mutex> lock(connectionMutex_);
+        last_activity_time_ = std::chrono::steady_clock::now();
+    }
+
     running_ = true;
     client_thread_ = std::thread(&GRAMS_TOF_CommandClient::run, this);
     worker_thread_ = std::thread(&GRAMS_TOF_CommandClient::workerLoop, this);
@@ -118,42 +124,37 @@ void GRAMS_TOF_CommandClient::run() {
             Logger::instance().error("[CommandClient] connect() failed: {}", std::strerror(errno));
             ::close(connected_fd);
             GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::COMMAND);
-            std::this_thread::sleep_for(std::chrono::seconds(5)); 
+            std::this_thread::sleep_for(std::chrono::seconds(1)); 
             continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(connectionMutex_);
+            last_activity_time_ = std::chrono::steady_clock::now();
         }
 
         Logger::instance().info("[CommandClient] Successfully connected to Hub on FD={}", connected_fd);
 
-        // Store the single connection object
-        {
-            std::lock_guard<std::mutex> lock(connectionMutex_);
-            hubConnection_ = std::make_unique<GRAMS_TOF_Client>(connected_fd);
-        }
-        
-        // --- 2. Setup Epoll ---
-        // ... (Epoll setup code remains the same: Lines 122-144) ...
+        // 2. Setup Epoll while the FD is still "naked"
         int epoll_fd = epoll_create1(0);
-        if (epoll_fd == -1) {
-            Logger::instance().error("[CommandClient] epoll_create1 failed: {}", std::strerror(errno));
-            std::lock_guard<std::mutex> lock(connectionMutex_);
-            if (hubConnection_) hubConnection_->closeFD();
-            hubConnection_.reset();
-            continue;
-        }
-
         struct epoll_event event{};
         event.data.fd = connected_fd;
         event.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+        
         if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connected_fd, &event) == -1) {
-            Logger::instance().error("[CommandClient] epoll_ctl add connected_fd failed: {}", std::strerror(errno));
+            Logger::instance().error("[CommandClient] epoll_ctl failed...");
+            ::close(connected_fd); // Just close the raw FD
             ::close(epoll_fd);
+            continue; // No need to touch hubConnection_ because it's still null
+        }
+        
+        {
             std::lock_guard<std::mutex> lock(connectionMutex_);
-            if (hubConnection_) hubConnection_->closeFD();
-            hubConnection_.reset();
-            continue;
+            last_activity_time_ = std::chrono::steady_clock::now();
+            hubConnection_ = std::make_unique<GRAMS_TOF_Client>(connected_fd);
         }
 
-        // --- 3. Persistent Read Loop (FIXED) ---
+        // --- 3. Persistent Read Loop ---
         int fd_in_event = connected_fd;
         bool connection_active = true;
 
@@ -188,6 +189,11 @@ void GRAMS_TOF_CommandClient::run() {
                 Logger::instance().info("[CommandClient] Connection lost (FD={})", fd_in_event);
                 shouldClose = true;
             } else {
+                {
+                    std::lock_guard<std::mutex> lock(connectionMutex_);
+                    last_activity_time_ = std::chrono::steady_clock::now();
+                }
+
                 // 1. Append newly read data to the persistent buffer
                 incoming_buffer.insert(incoming_buffer.end(), temp_read_buffer, temp_read_buffer + n_read);
 
@@ -307,5 +313,17 @@ void GRAMS_TOF_CommandClient::workerLoop() {
 bool GRAMS_TOF_CommandClient::isConnected() const {
     std::lock_guard<std::mutex> lock(connectionMutex_);
     return (hubConnection_ != nullptr);
+}
+
+bool GRAMS_TOF_CommandClient::isHealthy() const {
+    std::lock_guard<std::mutex> lock(connectionMutex_);
+    if (running_ && !hubConnection_) {
+        return true; 
+    }
+
+    if (!hubConnection_) return false;
+
+    auto now = std::chrono::steady_clock::now();
+    return (now - last_activity_time_) < heartbeat_timeout_;
 }
 

@@ -22,6 +22,10 @@
 std::mutex logMutex;
 std::queue<std::string> logQueue;
 std::atomic<bool> running{true};
+std::atomic<int> heartbeatInterval{1};
+
+std::atomic<int> commandClientSock{-1};
+std::atomic<int> eventClientSock{-1};
 
 // ---------- Logging helper ----------
 void addLog(const std::string& msg) {
@@ -104,106 +108,153 @@ int setupServer(int port) {
 }
 
 // ---------- Command Server Thread ----------
-void commandServerThread(int port, int& clientSock) {
+void commandServerThread(int port) {
+    int serverSock = -1;
     try {
-        int serverSock = setupServer(port);
+        // Initialize the server socket ONCE and keep it open
+        serverSock = setupServer(port);
         addLog("[CommandServer] Listening on port " + std::to_string(port));
 
-        sockaddr_in clientAddr{};
-        socklen_t clientLen = sizeof(clientAddr);
-        clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
-        if (clientSock < 0) {
-            addLog("[CommandServer] accept() failed");
-            close(serverSock);
-            return;
-        }
-
-        addLog("[CommandServer] DAQ client connected");
-
-        char buffer[1024];
         while (running) {
-            ssize_t n = recv(clientSock, buffer, sizeof(buffer)-1, 0);
-
-            if (n > 0) {
-                std::stringstream ss;
-                ss << "[CommandServer] Received " << std::dec << n << " bytes: ";
-                ss << std::hex << std::uppercase;
-                for (ssize_t i = 0; i < n; ++i) {
-                    ss << std::setw(2) << std::setfill('0') << (int)(unsigned char)buffer[i] << " ";
+            sockaddr_in clientAddr{};
+            socklen_t clientLen = sizeof(clientAddr);
+            
+            // Wait for a connection (this blocks until a DAQ connects)
+            int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+            
+            if (conn < 0) {
+                if (running) {
+                    addLog("[CommandServer] accept() failed: " + std::string(std::strerror(errno)));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
-                addLog(ss.str());
-            } else if (n == 0) {
-                addLog("[CommandServer] Client disconnected");
-                break;
-            } else {
-                if (errno != EWOULDBLOCK && errno != EAGAIN) {
-                    addLog(std::string("[CommandServer] Recv error: ") + std::strerror(errno));
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                continue;
             }
+
+            // Store the new connection in the global atomic
+            commandClientSock.store(conn); 
+            addLog("[CommandServer] DAQ client connected (FD=" + std::to_string(conn) + ")");
+
+            char buffer[1024];
+            while (running) {
+                // Check if the DAQ sent any data or closed the connection
+                // This read is necessary to detect when the DAQ closes its end
+                ssize_t n = recv(commandClientSock.load(), buffer, sizeof(buffer)-1, 0);
+
+                if (n > 0) {
+                    // Data received (e.g., ACKs from the DAQ)
+                } else if (n == 0) {
+                    addLog("[CommandServer] DAQ disconnected gracefully");
+                    break; // Exit inner loop to wait for a new connection
+                } else {
+                    // Handle errors (EWOULDBLOCK is ignored as we are in a simple loop)
+                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                        addLog("[CommandServer] Connection error: " + std::string(std::strerror(errno)));
+                        break; // Exit inner loop to wait for a new connection
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
+            }
+
+            // Connection lost: Clean up this specific client socket
+            int fd_to_close = commandClientSock.exchange(-1);
+            if (fd_to_close >= 0) {
+                ::close(fd_to_close);
+            }
+            addLog("[CommandServer] Waiting for new DAQ reconnection...");
         }
 
-        close(clientSock);
-        clientSock = -1; // Important to reset global socket file descriptor
-        close(serverSock);
     } catch (const std::exception& e) {
-        addLog(std::string("[CommandServer] Exception: ") + e.what());
+        addLog(std::string("[CommandServer] Fatal Exception: ") + e.what());
+    }
+
+    // Final cleanup of the listener socket when the program exits
+    if (serverSock >= 0) {
+        ::close(serverSock);
     }
 }
-
 
 // ---------- Event Server Thread ----------
-void eventServerThread(int port, int& clientSock) {
+void eventServerThread(int port) { 
+    int serverSock = -1;
     try {
-        int serverSock = setupServer(port);
+        // 1. Setup the listener socket ONCE.
+        // This keeps the port 50006 "Open" even when the DAQ is disconnected.
+        serverSock = setupServer(port);
         addLog("[EventServer] Listening on port " + std::to_string(port));
 
-        sockaddr_in clientAddr{};
-        socklen_t clientLen = sizeof(clientAddr);
-        clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
-        if (clientSock < 0) {
-            addLog("[EventServer] accept() failed");
-            close(serverSock);
-            return;
-        }
-
-        addLog("[EventServer] DAQ client connected");
-
-        char buffer[1024];
         while (running) {
-            ssize_t n = recv(clientSock, buffer, sizeof(buffer)-1, 0); 
-
-            if (n > 0) {
-                // Log the raw bytes received for event data
-                std::stringstream ss;
-                ss << "[EventServer] Received " << std::dec << n << " bytes: ";
-                ss << std::hex << std::uppercase;
-                for (ssize_t i = 0; i < n; ++i) {
-                    ss << std::setw(2) << std::setfill('0') << (int)(unsigned char)buffer[i] << " ";
+            sockaddr_in clientAddr{};
+            socklen_t clientLen = sizeof(clientAddr);
+            
+            // 2. Wait for the DAQ to connect (blocks here)
+            int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+            if (conn < 0) {
+                if (running) {
+                    addLog("[EventServer] accept() failed: " + std::string(std::strerror(errno)));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
-                addLog(ss.str());
+                continue;
+            }
 
-            } else if (n == 0) {
-                addLog("[EventServer] Client disconnected");
-                break;
-            } else {
-                if (errno != EWOULDBLOCK && errno != EAGAIN) {
-                    addLog(std::string("[EventServer] Recv error: ") + std::strerror(errno));
-                    break;
+            // 3. Store the new connection in the global atomic
+            eventClientSock.store(conn);
+            addLog("[EventServer] DAQ client connected (FD=" + std::to_string(conn) + ")");
+
+            char buffer[1024];
+            while (running) {
+                // 4. Monitor the connection
+                // Even though this is an Event link (mostly Hub <- DAQ), 
+                // we must recv() to detect if the DAQ has closed the socket.
+                ssize_t n = recv(eventClientSock.load(), buffer, sizeof(buffer)-1, 0); 
+                
+                if (n == 0) {
+                    addLog("[EventServer] DAQ disconnected gracefully");
+                    break; // Exit session loop
+                } else if (n < 0) {
+                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                        addLog("[EventServer] Connection error: " + std::string(std::strerror(errno)));
+                        break; // Exit session loop
+                    }
                 }
+                // Optional: Process data if the DAQ sends events to the Hub
+                
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
-        }
 
-        close(clientSock);
-        clientSock = -1; // Important to reset global socket file descriptor
-        close(serverSock);
+            // 5. Cleanup the specific session, but leave serverSock open for the next DAQ retry
+            int fd_to_close = eventClientSock.exchange(-1);
+            if (fd_to_close >= 0) {
+                ::close(fd_to_close);
+            }
+            addLog("[EventServer] Waiting for new DAQ reconnection...");
+        }
     } catch (const std::exception& e) {
-        addLog(std::string("[EventServer] Exception: ") + e.what());
+        addLog(std::string("[EventServer] Fatal Exception: ") + e.what());
+    }
+
+    if (serverSock >= 0) {
+        ::close(serverSock);
     }
 }
 
+void heartbeatTask() {
+    while (running) {
+        int currentSock = commandClientSock.load();
+        if (currentSock >= 0) {
+            try {
+                GRAMS_TOF_CommandCodec::Packet hb;
+                hb.code = static_cast<uint16_t>(TOFCommandCode::HEART_BEAT);
+                hb.argc = 0;
+            
+                std::vector<uint8_t> data = GRAMS_TOF_CommandCodec::serialize(hb);
+                send(currentSock, data.data(), data.size(), MSG_NOSIGNAL);
+            } catch (...) {
+                addLog("[Heartbeat] Send failed");
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(heartbeatInterval.load()));
+    }
+}
 
 // ---------- Main ----------
 int main() {
@@ -236,11 +287,9 @@ int main() {
     nodelay(inputWin, TRUE);
     keypad(inputWin, TRUE);
 
-    int commandClientSock = -1;
-    int eventClientSock = -1;
-
-    std::thread tCommand(commandServerThread, 50007, std::ref(commandClientSock));
-    std::thread tEvent(eventServerThread, 50006, std::ref(eventClientSock));
+    std::thread tCommand(commandServerThread, 50007);
+    std::thread tEvent(eventServerThread, 50006);
+    std::thread tHeartbeat(heartbeatTask);
 
     while (running) {
         // --- Update log window ---
@@ -259,6 +308,17 @@ int main() {
         if (ch != ERR) {
             if (ch == '\n') {
                 if (!inputStr.empty()) {
+                    if (inputStr.find("heartbeat ") == 0) {
+                        try {
+                            int newInterval = std::stoi(inputStr.substr(10));
+                            heartbeatInterval = newInterval;
+                            addLog("[System] Heartbeat interval set to " + std::to_string(newInterval) + "s");
+                        } catch (...) {
+                            addLog("[System] Invalid format. Use: heartbeat <seconds>");
+                        }
+                        inputStr.clear();
+                    }
+
                     if (commandClientSock >= 0) {
                         try {
                             auto pkt = GRAMS_TOF_CommandCodec::Packet();
@@ -313,6 +373,7 @@ int main() {
     running = false;
     tCommand.join();
     tEvent.join();
+    tHeartbeat.join();
 
     delwin(logWin);
     delwin(inputWin);

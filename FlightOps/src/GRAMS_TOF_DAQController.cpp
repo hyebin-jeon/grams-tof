@@ -125,7 +125,26 @@ void GRAMS_TOF_DAQController::run() {
     Logger::instance().info("[System] GRAMS_TOF_DAQController running...");
 
     while (keepRunning_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // 1. Check health of the Command Link
+        if (!commandClient_->isHealthy()) {
+            Logger::instance().warn("[System] Command link health check failed (Heartbeat timeout). Resetting connections...");
+            
+            // 2. Stop both clients to clear FDs and threads
+            commandClient_->stop();
+            eventClient_->stop();
+
+            // 3. Optional: small delay to let the OS clean up the sockets
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            // 4. Restart both clients
+            commandClient_->start();
+            eventClient_->start();
+
+            Logger::instance().info("[System] Re-connection sequence initiated.");
+        }
+
+        // Check health every 500ms to avoid high CPU usage
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     Logger::instance().info("[System] Finalizing network transmissions...");
