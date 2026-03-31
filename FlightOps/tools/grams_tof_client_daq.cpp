@@ -8,6 +8,8 @@ int main(int argc, char* argv[]) {
 
     CLI::App app{"GRAMS TOF DAQ Core Application (Client Host)"};
     GRAMS_TOF_DAQController::Config config;
+    //Logger::instance().setLogLevel(Logger::Level::Detail);
+    Logger::instance().setLogLevel(Logger::Level::Info);
 
     app.add_flag("--no-fpga", config.noFpgaMode, "Skip DAQ initialization for testing without FPGA");
     app.add_option("--command-port", config.commandListenPort, "Command service port (Listening)");

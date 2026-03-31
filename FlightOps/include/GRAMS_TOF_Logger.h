@@ -22,7 +22,7 @@ namespace LogColor {
 
 class Logger {
 public:
-    enum class Level { Info, Warning, Error, Debug, Detail };
+    enum class Level { Detail = 0, Debug = 1, Info = 2, Warning = 3, Error = 4 };
 
     static Logger& instance() {
         static Logger inst;
@@ -34,8 +34,17 @@ public:
         logFile_ = std::make_unique<std::ofstream>(logfile);
     }
 
+    void setLogLevel(Level level) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        minLevel_ = level;
+    }
+
     template<typename... Args>
     void log(Level level, const std::string& fmt_str, Args&&... args) {
+        {
+            if (static_cast<int>(level) < static_cast<int>(minLevel_)) return;
+        }
+
         std::lock_guard<std::mutex> lock(mutex_);
         const char* color = getColor(level);
         const char* label = getLabel(level);
@@ -105,6 +114,7 @@ private:
     }
 
     std::unique_ptr<std::ofstream> logFile_;
+    Level minLevel_ = Level::Info;
     std::mutex mutex_;
 };
 
