@@ -34,6 +34,9 @@ int TOF_ConvertStg1toStg2::addBranches()
 	}
 
 	auto theChanConv = TOF_ChannelConversion::getInstance();
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto thePaddle   = TOF_PaddleChannelMap::getInstance();
+	auto theCalib    = TOF_TdcQdcCalibration::getInstance();
 
 	fStg1->setBranchAddress(); // duplicate
 	fStg1->getEntry(0);
@@ -60,13 +63,22 @@ int TOF_ConvertStg1toStg2::addBranches()
     auto eCoarse   = fStg1->getECoarse()  ;
     auto tFine     = fStg1->getTFine()    ;
     auto eFine     = fStg1->getEFine()    ;
+
+		/// apply the calibration 
+		auto tdc_cal = theCalib->getCalibratedTime( TOF_Branch::fBranchT, channelID, tacID, frameID, tCoarse, tFine ); // t_begin
+		auto qdc_cal = theCalib->getCalibratedQDC( channelID, tacID, frameID, eCoarse, eFine, tCoarse, tdc_cal );
+
+		/// t_end
+		//auto ecoarse = eCoarse;
+		//if((eCoarse - tCoarse) < -256) ecoarse += 1024;
+		//auto t_end = double((frameID*1024+ ecoarse));
 	
 		/// physical channel ID (connector IDs)
 		auto connID_D  = theChanConv->getConnIdOnFebD( channelID );
 		auto connID_S  = theChanConv->getConnIdOnFebS( channelID );
 
 		/// paddle IDs
-		//auto systID = theChanConv->getSystemID();
+		auto paddleID = thePaddle->getPaddleId( channelID );
 
 		long long currT = CLOCKS_IN_A_FRAME * frameID + tCoarse;
 		long long diffT = currT - initialT;
@@ -88,21 +100,24 @@ int TOF_ConvertStg1toStg2::addBranches()
 
 		ts_pps = ts_cpu; // temporary dummy
 
-		fStg2->setStep1       ( step1     );
-    fStg2->setStep2       ( step2     );
-    fStg2->setStepBgin    ( stepBegin );
-    fStg2->setStepEnd     ( stepEnd   );
-    fStg2->setFrameID     ( frameID   );
-    fStg2->setChannelID   ( channelID );
-		fStg2->setConnID_FebD ( connID_D  );
-		fStg2->setConnID_FebS ( connID_S  );
-    fStg2->setTacID       ( tacID     );
-    fStg2->setTCoarse     ( tCoarse   );
-    fStg2->setECoarse     ( eCoarse   );
-    fStg2->setTFine       ( tFine     );
-    fStg2->setEFine       ( eFine     );
-		fStg2->setTimeStampCPU( &ts_cpu    );
-		fStg2->setTimeStampPPS( &ts_pps    );
+		fStg2->setStep1        ( step1     );
+    fStg2->setStep2        ( step2     );
+    fStg2->setStepBgin     ( stepBegin );
+    fStg2->setStepEnd      ( stepEnd   );
+    fStg2->setFrameID      ( frameID   );
+    fStg2->setChannelID    ( channelID );
+		fStg2->setConnID_FebD  ( connID_D  );
+		fStg2->setConnID_FebS  ( connID_S  );
+		fStg2->setPaddleID     ( paddleID  );
+    fStg2->setTacID        ( tacID     );
+    fStg2->setTCoarse      ( tCoarse   );
+    fStg2->setECoarse      ( eCoarse   );
+    fStg2->setTFine        ( tFine     );
+    fStg2->setEFine        ( eFine     );
+    fStg2->setCalibratedTdc( tdc_cal   );
+    fStg2->setCalibratedQdc( qdc_cal   );
+		fStg2->setTimeStampCPU ( &ts_cpu   );
+		fStg2->setTimeStampPPS ( &ts_pps   );
 
 		fStg2->fillTTree(); 
 	}
@@ -110,44 +125,7 @@ int TOF_ConvertStg1toStg2::addBranches()
 	return TOF_GOOD;
 }
 
-//int TOF_ConvertStg1toStg2::addConnIdBranches()
-//{
-//
-//	if( !fStg1->getTTree() ) {
-//		std::cerr << "[ERR] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1->getTTree() is NULL." << std::endl;
-//		return TOF_ERR;
-//	}
-//
-//	if( fStg1->getEntries() == 0 ) {
-//		std::cout << "[WARN] TOF_ConvertStg1toStg2::addTimestampBranches() | fStg1 entries = 0." << std::endl;
-//		return TOF_ERR;
-//	}
-//
-//	fStg1->setBranchStatus("channelID",1); // duplicate
-//	fStg1->setBranchAddress(); // duplicate
-//
-//	//fStg2->makeBranches();
-//
-//	for( int i=0; i<fStg1->getEntries(); i++ )
-//	{
-//		fStg1->getEntry(i);
-//
-//    auto channelID = fStg1->getChannelID();
-//		auto connID_D  = TOF_ChannelConversion::getInstance()->getConnIdOnFebD( channelID );
-//		auto connID_S  = TOF_ChannelConversion::getInstance()->getConnIdOnFebS( channelID );
-//
-//		fStg2->setConnID_FebD( connID_D );
-//		fStg2->setConnID_FebS( connID_S );
-//
-//		//fStg2->fillTTree();
-//	}
-//
-//	return TOF_GOOD;
-//}
-
-
-
-void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2 )
+void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2, const char* tdc_cal_tsv, const char* qdc_cal_tsv, const char* asic_list_tsv )
 {
 	if( !fStg1 ) setClassStg1();
 	if( !fStg2 ) setClassStg2();
@@ -162,6 +140,17 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 		kPathStg2 = Form( "%s/%s.stg2.root", dir.Data(), name2.Data() );
 	}
 
+	/// active asic list
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	if( strcmp(asic_list_tsv, "")!=0 ) {
+		theAsicList->setInputFile( (std::string) asic_list_tsv );
+	}
+	else {
+		theAsicList->useDefaultInputFile();
+	}
+	theAsicList->readActiveAsicList();
+
+	/// stg2 TTree
 	fStg2->setOutputPath( kPathStg2, "recreate" );
 	addBranches();
 	fStg2->getTTree()->Write();

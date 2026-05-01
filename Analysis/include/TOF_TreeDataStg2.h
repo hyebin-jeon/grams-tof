@@ -36,21 +36,26 @@ class TOF_TreeDataStg2 : public TOF_TreeDataStg1
 		TTimeStamp* ts_pps{nullptr};
 		uint8_t     connID_febS;
 		uint8_t     connID_febD;
-		
-		uint16_t paddleID;
+		uint16_t    paddleID;
+		double      tdc_cal; 
+		double      qdc_cal; 
 	
 	public:
     TTimeStamp getTimeStampCPU() const { return *ts_cpu; };
     TTimeStamp getTimeStampPPS() const { return *ts_pps; };
 		uint8_t    getConnID_FebD()  const { return connID_febD; };
 		uint8_t    getConnID_FebS()  const { return connID_febS; };
-		uint16_t   getPaddleID()     const { return paddleID; };
+		uint16_t   getPaddleID()     const { return paddleID; }; // 0xABBC A=(0=TTOF, 1=MTOF, 2=MPD, 3=Trig, 4=PPS), BB=paddle ID, C= channel ID within a paddle
+		double    getCalibratedTdc() const { return tdc_cal; };
+		double    getCalibratedQdc() const { return qdc_cal; };
 
-    void setTimeStampCPU(const TTimeStamp* ts ){ if( ts ) *ts_cpu = *ts; };
-    void setTimeStampPPS(const TTimeStamp* ts ){ if( ts ) *ts_pps = *ts; };
-		void setConnID_FebD (const uint8_t connID ){ connID_febD = connID; };
-		void setConnID_FebS (const uint8_t connID ){ connID_febS = connID; };
-		void setPaddleID    (const uint16_t paddle){ paddleID    = paddle; };
+    void setTimeStampCPU (const TTimeStamp* ts ){ if( ts ) *ts_cpu = *ts; };
+    void setTimeStampPPS (const TTimeStamp* ts ){ if( ts ) *ts_pps = *ts; };
+		void setConnID_FebD  (const uint8_t  val ){ connID_febD = val; };
+		void setConnID_FebS  (const uint8_t  val ){ connID_febS = val; };
+		void setPaddleID     (const uint16_t val ){ paddleID    = val; };
+		void setCalibratedTdc(const uint16_t val ){ tdc_cal     = val; };
+		void setCalibratedQdc(const uint16_t val ){ qdc_cal     = val; };
 
 	ClassDefOverride(TOF_TreeDataStg2, 1)
 

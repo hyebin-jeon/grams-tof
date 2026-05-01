@@ -7,6 +7,8 @@
 #include "TTimeStamp.h"
 #include "TOF_TreeDataStg1.h"
 #include "TOF_TreeDataStg2.h"
+#include "TOF_PaddleChannelMap.h"
+#include "TOF_TdcQdcCalibration.h"
 #include "TOF_Constants.h"
 #include <iostream>
 
@@ -42,7 +44,7 @@ class TOF_ConvertStg1toStg2 : public TObject
 	public: 
 		int  setInputPathStg1( const char* fpath );
 		int  addBranches();
-		void convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2="" );
+		void convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2="", const char* tdc_cal_tsv="", const char* qdc_cal_tsv="", const char* asic_list_tsv="");
 		TOF_TreeDataStg1* getStg1() {return fStg1; };
 		TOF_TreeDataStg2* getStg2() {return fStg2; };
 

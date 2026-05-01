@@ -24,8 +24,10 @@ bool runTofQA_Iridium( const std::string& inputFile,
 
 	/// channel conversion class
 	auto theChanConv = TOF_ChannelConversion::getInstance();
-	if( theChanConv->readActiveAsicList(asicListFile.c_str())!= TOF_GOOD ) return false;
-	auto activeConnIds_D = theChanConv->getActiveConnIdOnFebD();
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeConnIds_D = theAsicList->getActiveConnIdOnFebD();
+	//if( theChanConv->readActiveAsicList(asicListFile.c_str())!= TOF_GOOD ) return false;
+	//auto activeConnIds_D = theChanConv->getActiveConnIdOnFebD();
 	
 	const int nconn = 2; // number of connected FEB-S
 	const int nsyst  = 2; // number of system TTOF, MTOF, MPD

@@ -22,22 +22,16 @@ class TOF_PaddleChannelMap : public TObject
   			thePadMap = new TOF_PaddleChannelMap;
   		}
 
-			thePadMap->fillMapConnIdToPaddle();
-			thePadMap->fillMapPaddleToConnId();
-			thePadMap->fillMapChannelIdPaddle();
+			thePadMap->fillMapConnIdToPaddleId();
+			thePadMap->fillMapPaddleIdToConnId();
+			thePadMap->fillMapChannelIdAndPaddleId();
   
   		return thePadMap;
   	};
   
   	~TOF_PaddleChannelMap() = default;
-
-	private:
-		//struct sPaddleID_sub{
-		//	uint8_t systemIdx;
-		//	uint8_t paddleIdx;
-		//	uint8_t channelIdx;
-		//};
-
+	
+	public:
 		enum eSystem : uint16_t {
 			fTopTOF = 0,
 			fMidTOF = 1,
@@ -45,16 +39,29 @@ class TOF_PaddleChannelMap : public TObject
 			fTrig   = 3,
 			fPPS    = 4,
 		};
-		void fillMapConnIdToPaddle();
-		void fillMapPaddleToConnId();
-		void fillMapChannelIdPaddle();
 
-		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddle; // pair<FEB-S Id, ConnId> --> paddle ID 0xABBC
-		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleToConnId;
-		std::map< uint16_t, uint32_t > fMap_PaddleToChannelId;
-		std::map< uint32_t, uint16_t > fMap_ChannelIdToPaddle;
+	private:
+		void fillMapConnIdToPaddleId();
+		void fillMapPaddleIdToConnId();
+		void fillMapChannelIdAndPaddleId();
 
+		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddleId; // pair<FEB-S Idx, ConnId> --> paddle Idx 0xABBC
+		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleIdToConnId;
+		std::map< uint16_t, uint32_t > fMap_PaddleIdToChannelId;
+		std::map< uint32_t, uint16_t > fMap_ChannelIdToPaddleId;
+
+	public:
+		/// based on the maps
+		uint16_t getPaddleId( uint8_t FebS_idx, uint8_t connId );
+		uint16_t getPaddleId( uint32_t absChanId );
+		uint32_t getAbsoluteChannelId( uint16_t paddleId );
+		std::pair<uint8_t, uint8_t> getFebSIdxAndConnId( uint16_t paddleId );
+
+		/// paddleID <-> paddle Indice (system, paddle, channel)
 		uint16_t getPaddleId( uint16_t systemIdx, uint16_t paddleIdx, uint16_t channelIdx );
+		uint16_t getSystemIdx         ( uint16_t paddleId ){ return (paddleId>>12) & 0xF; };
+		uint16_t getPaddleIdxInSystem ( uint16_t paddleId ){ return (paddleId>>4) & 0xFF; };
+		uint16_t getChannelIdxInPaddle( uint16_t paddleId ){ return paddleId & 0xF; };
 	  
 		ClassDef(TOF_PaddleChannelMap, 1)
 

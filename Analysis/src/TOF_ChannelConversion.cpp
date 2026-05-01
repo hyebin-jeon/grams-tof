@@ -323,61 +323,64 @@ uint8_t TOF_ChannelConversion::getConnIdOnFebD( uint32_t channel )
 	return connID;
 }
 
-int TOF_ChannelConversion::readActiveAsicList( const char* fname )
-{
-  std::ifstream fin( fname );
-	if( ! fin.is_open() ) {
-		std::cout<< Form( "[ERR] Input File Does NOT Exist: %s", fname ) << std::endl;
-		return TOF_ERR;
-	}
-
-  std::string word, sLine;
-  std::stringstream ssLine;
-	const int line0 = 1;
-  int wordN{0}, lineN{0};
-	int portID, slaveID;
-	std::vector<int> vFebD_connID;
-
-	/// read line by line
-  while( std::getline(fin, sLine) )
-  {
-    ssLine.clear();
-    ssLine << sLine;
-
-		/// break a line to words
-		/// the scan param table should use '\t' to separate variables
-    wordN=0;
-    while( std::getline(ssLine, word, '\t') ) 
-    {   
-		  if( lineN< line0 ) {lineN++; continue;}
-
-			if     ( wordN==0 ) portID  = std::atoi( word.c_str() );
-			else if( wordN==1 ) slaveID = std::atoi( word.c_str() );
-			else if( wordN==2 ) vFebD_connID.push_back( std::atoi( word.c_str() ) );
-			else std::cout << "[Warning] Too Many Scan Parameter values.." << std::endl;
-
-			wordN++;
-		}
-
-		lineN++;
-	}
-
-	if( vFebD_connID.size()!=2 ) return TOF_ERR;
-
-	fFebD_connID0 = vFebD_connID.at(0);
-	fFebD_connID1 = vFebD_connID.at(1);
-
-	return TOF_GOOD;
-}
+//int TOF_ChannelConversion::readActiveAsicList( const char* fname )
+//{
+//  std::ifstream fin( fname );
+//	if( ! fin.is_open() ) {
+//		std::cout<< Form( "[ERR] Input File Does NOT Exist: %s", fname ) << std::endl;
+//		return TOF_ERR;
+//	}
+//
+//  std::string word, sLine;
+//  std::stringstream ssLine;
+//	const int line0 = 1;
+//  int wordN{0}, lineN{0};
+//	int portID, slaveID;
+//	std::vector<int> vFebD_connID;
+//
+//	/// read line by line
+//  while( std::getline(fin, sLine) )
+//  {
+//    ssLine.clear();
+//    ssLine << sLine;
+//
+//		/// break a line to words
+//		/// the scan param table should use '\t' to separate variables
+//    wordN=0;
+//    while( std::getline(ssLine, word, '\t') ) 
+//    {   
+//		  if( lineN< line0 ) {lineN++; continue;}
+//
+//			if     ( wordN==0 ) portID  = std::atoi( word.c_str() );
+//			else if( wordN==1 ) slaveID = std::atoi( word.c_str() );
+//			else if( wordN==2 ) vFebD_connID.push_back( std::atoi( word.c_str() ) );
+//			else std::cout << "[Warning] Too Many Scan Parameter values.." << std::endl;
+//
+//			wordN++;
+//		}
+//
+//		lineN++;
+//	}
+//
+//	if( vFebD_connID.size()!=2 ) return TOF_ERR;
+//
+//	fFebD_connID[0] = vFebD_connID.at(0);
+//	fFebD_connID[1] = vFebD_connID.at(1);
+//
+//	return TOF_GOOD;
+//}
 
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
 {
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeAsic = theAsicList->getActiveConnIdOnFebD();
+
 	auto febD = getConnIdOnFebD( absoluteChannel );
 	auto febS = getConnIdOnFebS( absoluteChannel );
 
 	uint8_t febD_idx = 2; // dummy initilization
-	if     ( febD == fFebD_connID0 ) febD_idx = 0;
-	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	if     ( febD == activeAsic[0] ) febD_idx = 0;
+	else if( febD == activeAsic[1] ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
 	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
@@ -387,9 +390,12 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
 
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS )
 {
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeAsic = theAsicList->getActiveConnIdOnFebD();
+
 	uint8_t febD_idx = 2; // dummy initilization
-	if     ( febD == fFebD_connID0 ) febD_idx = 0;
-	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	if     ( febD == activeAsic[0] ) febD_idx = 0;
+	else if( febD == activeAsic[1] ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
 	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
@@ -399,13 +405,16 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS
 
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID )
 {
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeAsic = theAsicList->getActiveConnIdOnFebD();
+
 	auto absoluteChannel = getAbsoluteChannelID( portID, slaveID, chipID, channelID );
 	auto febD = getConnIdOnFebD( absoluteChannel );
 	auto febS = getConnIdOnFebS( absoluteChannel );
 
 	uint8_t febD_idx = 2; // dummy initilization
-	if     ( febD == fFebD_connID0 ) febD_idx = 0;
-	else if( febD == fFebD_connID1 ) febD_idx = 1;
+	if     ( febD == activeAsic[0] ) febD_idx = 0;
+	else if( febD == activeAsic[1] ) febD_idx = 1;
 	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
 
 	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
