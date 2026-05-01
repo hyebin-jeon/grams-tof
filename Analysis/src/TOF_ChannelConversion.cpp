@@ -318,7 +318,7 @@ uint8_t TOF_ChannelConversion::getConnIdOnFebS( uint32_t channel )
 uint8_t TOF_ChannelConversion::getConnIdOnFebD( uint32_t channel )
 {
 	uint8_t asicID = getAsicID( channel );
-	uint8_t connID = 2 * (asicID/2) + 1;
+	uint8_t connID = (2*(asicID/2))/2 + 1;
 
 	return connID;
 }
