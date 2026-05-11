@@ -62,7 +62,7 @@ int TOF_DiscriminatorCalibration::readCalib( const char *fname )
       continue;
     }
     if ( finQ.eof() ) break;
-    finQ >> slaveID >> chipID >> channelID >> bT >> bE >> zT1 >> zT2 >> zE >> nT1 >> nT2 >> nE;
+    finQ >> portID >> slaveID >> chipID >> channelID >> bT >> bE >> zT1 >> zT2 >> zE >> nT1 >> nT2 >> nE;
     //    std::cout << Form( "%u %u", chipID, channelID ) << std::endl;
     fBaseline[chipID][channelID][fbranchT] = bT;
     fBaseline[chipID][channelID][fbranchE] = bE;
