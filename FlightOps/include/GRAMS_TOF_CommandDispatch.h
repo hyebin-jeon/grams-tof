@@ -17,11 +17,18 @@
 #include "GRAMS_TOF_Analyzer.h"
 #include "GRAMS_TOF_EventClient.h"
 
+class GRAMS_TOF_SystemEventListener {
+public:
+    virtual ~GRAMS_TOF_SystemEventListener() = default;
+    virtual void onNetworkResetRequested() = 0;
+};
+
 class GRAMS_TOF_CommandDispatch {
 public:
     GRAMS_TOF_CommandDispatch(GRAMS_TOF_PythonIntegration& pyint, 
                               GRAMS_TOF_Analyzer& analyzer,
-                              GRAMS_TOF_EventClient& eventClient);
+                              GRAMS_TOF_EventClient& eventClient,
+                              GRAMS_TOF_SystemEventListener& listener);
     ~GRAMS_TOF_CommandDispatch();
 
     using CommandArgs = std::vector<uint32_t>;
@@ -32,6 +39,7 @@ private:
     GRAMS_TOF_PythonIntegration& pyint_;
     GRAMS_TOF_Analyzer& analyzer_;
     GRAMS_TOF_EventClient& eventClient_;
+    GRAMS_TOF_SystemEventListener& listener_;
 
     std::unordered_map<TOFCommandCode, CommandHandler> table_;
 

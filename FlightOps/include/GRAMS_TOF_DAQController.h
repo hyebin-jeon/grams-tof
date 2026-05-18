@@ -9,12 +9,13 @@
 #include "GRAMS_TOF_Logger.h"
 #include "GRAMS_TOF_Config.h"
 #include "GRAMS_TOF_CommandCodec.h"
+#include "GRAMS_TOF_CommandDispatch.h"
 
 #include <string>
 #include <atomic>
 #include <memory> 
 
-class GRAMS_TOF_DAQController {
+class GRAMS_TOF_DAQController : public GRAMS_TOF_SystemEventListener {
 public:
     // Structure to hold the configuration passed from the command line
     struct Config {
@@ -32,12 +33,16 @@ public:
     bool initialize();
     void run();
     void stop();
+    void onNetworkResetRequested() override {
+        networkResetRequested_ = true; 
+    }
 
 private:
     Config config_;
 
     // Thread-safe flag to signal the run loop to terminate
     std::atomic<bool> keepRunning_ = true;
+    std::atomic<bool> networkResetRequested_ = false;
 
     // 1. Core Hardware/Data Manager
     GRAMS_TOF_DAQManager daq_;

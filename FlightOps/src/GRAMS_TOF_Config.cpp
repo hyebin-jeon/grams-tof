@@ -131,7 +131,8 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
     const std::string& absDir,
     const std::string& prefix,
     const std::string& timestamp,
-    const std::string& ext) const
+    const std::string& ext,
+    bool strict) const
 {
     namespace fs = std::filesystem;
 
@@ -139,7 +140,9 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
     if (!fs::exists(dir) || !fs::is_directory(dir))
         throw std::runtime_error("Directory does not exist: " + dir.string());
 
-    std::string pattern = prefix + "_" + timestamp + R"(.*)" + ext;
+    std::string pattern;
+    if (strict) pattern = prefix + "_" + timestamp + ext + "$"; 
+    else        pattern = prefix + "_" + timestamp + R"(.*)" + ext;
     std::regex re(pattern);
 
     for (const auto& entry : fs::directory_iterator(dir)) {
@@ -176,7 +179,8 @@ std::string GRAMS_TOF_Config::makeFilePathWithTimestamp(
 std::string GRAMS_TOF_Config::getLatestTimestamp(
     const std::string& absDir,
     const std::string& prefix,
-    const std::string& suffix) const 
+    const std::string& suffix,
+    bool strict) const 
 {
     namespace fs = std::filesystem;
 
@@ -184,7 +188,10 @@ std::string GRAMS_TOF_Config::getLatestTimestamp(
     if (!fs::exists(dir) || !fs::is_directory(dir))
         throw std::runtime_error("Directory does not exist: " + dir.string());
 
-    std::regex re(prefix + R"(_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+Z))" + suffix + R"(.*)");
+    std::string pattern;
+    if (strict) pattern = prefix + R"(_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+Z))" + suffix + "$";
+    else        pattern = prefix + R"(_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+Z))" + suffix + R"(.*)";
+    std::regex re(pattern);
 
     std::string latestTs;
 

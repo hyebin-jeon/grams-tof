@@ -8,6 +8,7 @@ enum class TOFCommandCode : uint16_t {
     START_DAQ                        = 0x5000,
     STOP_DAQ                         = 0x5001,
     RESET_DAQ                        = 0x5002,
+    RECONNECT_NETWORK                = 0x5003,
 
     INIT_SYSTEM                      = 0x5100,
     MAKE_BIAS_CALIB_TABLE            = 0x5101,
@@ -19,8 +20,10 @@ enum class TOFCommandCode : uint16_t {
     ACQUIRE_TDC_CALIBRATION          = 0x5107,
     ACQUIRE_QDC_CALIBRATION          = 0x5108,
     ACQUIRE_SIPM_DATA                = 0x5109,
-    ACQUIRE_THRESHOLD_CALIBRATION_BN = 0x5110,
-    ACQUIRE_THRESHOLD_CALIBRATION_D  = 0x5111,
+    ACQUIRE_THRESHOLD_CALIBRATION_BN = 0x510A,
+    ACQUIRE_THRESHOLD_CALIBRATION_D  = 0x510B,
+    SET_FEM_POWER_OFF                = 0x510C,
+    SET_FEM_POWER_ON                 = 0x510D,
 
     PROCESS_THRESHOLD_CALIBRATION    = 0x5200,
     PROCESS_TDC_CALIBRATION          = 0x5201,
@@ -35,6 +38,7 @@ enum class TOFCommandCode : uint16_t {
     MONITOR_DATA_STREAM              = 0x5400,
 
     MACRO_THERMAL_CALIB              = 0x5500,
+    MACRO_AUTO_RUN_SEQUENCE          = 0x5501,
 
     ACK                              = 0x5FFF,
     CALLBACK                         = 0x5FFE,
@@ -55,6 +59,7 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::START_DAQ:                        return os << "START_DAQ";
         case TOFCommandCode::STOP_DAQ:                         return os << "STOP_DAQ";
         case TOFCommandCode::RESET_DAQ:                        return os << "RESET_DAQ";
+        case TOFCommandCode::RECONNECT_NETWORK:                return os << "RECONNECT_NETWORK";
 
         case TOFCommandCode::INIT_SYSTEM:                      return os << "INIT_SYSTEM";
         case TOFCommandCode::MAKE_BIAS_CALIB_TABLE:            return os << "MAKE_BIAS_CALIB_TABLE";
@@ -68,7 +73,9 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::ACQUIRE_SIPM_DATA:                return os << "ACQUIRE_SIPM_DATA";
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN: return os << "ACQUIRE_THRESHOLD_CALIBRATION_BN";
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D:  return os << "ACQUIRE_THRESHOLD_CALIBRATION_D";
-        
+        case TOFCommandCode::SET_FEM_POWER_OFF:                return os << "SET_FEM_POWER_OFF";
+        case TOFCommandCode::SET_FEM_POWER_ON:                 return os << "SET_FEM_POWER_ON";
+       
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return os << "PROCESS_THRESHOLD_CALIBRATION";
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return os << "PROCESS_TDC_CALIBRATION";
         case TOFCommandCode::PROCESS_QDC_CALIBRATION:          return os << "PROCESS_QDC_CALIBRATION";
@@ -82,6 +89,7 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::MONITOR_DATA_STREAM:              return os << "MONITOR_DATA_STREAM";
  
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return os << "MACRO_THERMAL_CALIB";
+        case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return os << "MACRO_AUTO_RUN_SEQUENCE";
 
         case TOFCommandCode::ACK:                              return os << "ACK";
         case TOFCommandCode::CALLBACK:                         return os << "CALLBACK";
@@ -103,6 +111,7 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::START_DAQ:                        return CommunicationCodes::TOF_Start_DAQ;
         case TOFCommandCode::STOP_DAQ:                         return CommunicationCodes::TOF_Stop_DAQ;
         case TOFCommandCode::RESET_DAQ:                        return CommunicationCodes::TOF_Reset_DAQ;
+        case TOFCommandCode::RECONNECT_NETWORK:                return CommunicationCodes::TOF_Reconnect_Network;
 
         case TOFCommandCode::INIT_SYSTEM:                      return CommunicationCodes::TOF_Init_System;
         case TOFCommandCode::MAKE_BIAS_CALIB_TABLE:            return CommunicationCodes::TOF_Make_Bias_Calib_Table;
@@ -116,6 +125,8 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::ACQUIRE_SIPM_DATA:                return CommunicationCodes::TOF_Acquire_SiPM_Data;
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN: return CommunicationCodes::TOF_Acquire_Threshold_Calibration_BN;
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D:  return CommunicationCodes::TOF_Acquire_Threshold_Calibration_D;
+        case TOFCommandCode::SET_FEM_POWER_OFF:                return CommunicationCodes::TOF_Set_FEM_Power_Off;
+        case TOFCommandCode::SET_FEM_POWER_ON:                 return CommunicationCodes::TOF_Set_FEM_Power_On;
 
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return CommunicationCodes::TOF_Process_Threshold_Calibration;
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return CommunicationCodes::TOF_Process_TDC_Calibration;
@@ -131,6 +142,7 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
                                                                    pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream);
 
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return CommunicationCodes::TOF_Macro_Thermal_Calib;
+        case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return CommunicationCodes::TOF_Macro_Auto_Run_Sequence;
 
         case TOFCommandCode::ACK:                              return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                         return CommunicationCodes::TOF_Callback;
@@ -148,6 +160,7 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Start_DAQ:                        return TOFCommandCode::START_DAQ;
         case CommunicationCodes::TOF_Stop_DAQ:                         return TOFCommandCode::STOP_DAQ;
         case CommunicationCodes::TOF_Reset_DAQ:                        return TOFCommandCode::RESET_DAQ;
+        case CommunicationCodes::TOF_Reconnect_Network:                return TOFCommandCode::RECONNECT_NETWORK;
 
         case CommunicationCodes::TOF_Init_System:                      return TOFCommandCode::INIT_SYSTEM;
         case CommunicationCodes::TOF_Make_Bias_Calib_Table:            return TOFCommandCode::MAKE_BIAS_CALIB_TABLE;
@@ -161,6 +174,8 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Acquire_SiPM_Data:                return TOFCommandCode::ACQUIRE_SIPM_DATA;
         case CommunicationCodes::TOF_Acquire_Threshold_Calibration_BN: return TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN;
         case CommunicationCodes::TOF_Acquire_Threshold_Calibration_D:  return TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D;
+        case CommunicationCodes::TOF_Set_FEM_Power_Off:                return TOFCommandCode::SET_FEM_POWER_OFF;
+        case CommunicationCodes::TOF_Set_FEM_Power_On:                 return TOFCommandCode::SET_FEM_POWER_ON;
 
         case CommunicationCodes::TOF_Process_Threshold_Calibration:    return TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION;
         case CommunicationCodes::TOF_Process_TDC_Calibration:          return TOFCommandCode::PROCESS_TDC_CALIBRATION;
@@ -176,6 +191,7 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
           pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream): return TOFCommandCode::MONITOR_DATA_STREAM;
 
         case CommunicationCodes::TOF_Macro_Thermal_Calib:              return TOFCommandCode::MACRO_THERMAL_CALIB;
+        case CommunicationCodes::TOF_Macro_Auto_Run_Sequence:          return TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE;
 
         case CommunicationCodes::TOF_ACK:                              return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                         return TOFCommandCode::CALLBACK;

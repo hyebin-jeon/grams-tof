@@ -58,7 +58,7 @@ GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
               this->handleIncomingCommand(pkt);
           }
       )),
-      dispatchTable_(pyint_, analyzer_, *eventClient_)
+      dispatchTable_(pyint_, analyzer_, *eventClient_, *this)
 {
     setupSystemFiles();
     setenv("DEBUG", "1", 1);
@@ -126,7 +126,12 @@ void GRAMS_TOF_DAQController::run() {
 
     while (keepRunning_) {
         // 1. Check health of the Command Link
-        if (!commandClient_->isHealthy()) {
+
+        bool commandHealthy = commandClient_->isHealthy();
+        bool eventHealthy   = eventClient_->isHealthy();
+
+        //if (!commandClient_->isHealthy() || networkResetRequested_) {
+        if (!commandHealthy || !eventHealthy || networkResetRequested_) {
             Logger::instance().warn("[System] Command link health check failed (Heartbeat timeout). Resetting connections...");
             
             // 2. Stop both clients to clear FDs and threads
@@ -134,12 +139,13 @@ void GRAMS_TOF_DAQController::run() {
             eventClient_->stop();
 
             // 3. Optional: small delay to let the OS clean up the sockets
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
 
             // 4. Restart both clients
             commandClient_->start();
             eventClient_->start();
 
+            networkResetRequested_ = false;
             Logger::instance().info("[System] Re-connection sequence initiated.");
         }
 

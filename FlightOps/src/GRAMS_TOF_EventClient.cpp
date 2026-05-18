@@ -285,6 +285,13 @@ bool GRAMS_TOF_EventClient::isConnected() const {
     return (hubConnection_ != nullptr);
 }
 
+bool GRAMS_TOF_EventClient::isHealthy() const {
+    std::lock_guard<std::mutex> lock(connectionMutex_);
+    if (running_ && !hubConnection_) {
+        return true; 
+    }
+    return (running_ && hubConnection_ != nullptr);
+}
 
 bool GRAMS_TOF_EventClient::sendMonitorData(TOFCommandCode code, const GRAMS_TOF_MonitorCodec::MonitorData& data) {
     GRAMS_TOF_CommandCodec::Packet pkt = GRAMS_TOF_MonitorCodec::encode(data);
