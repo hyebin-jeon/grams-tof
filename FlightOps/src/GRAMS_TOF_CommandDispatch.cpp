@@ -9,8 +9,9 @@
 GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     GRAMS_TOF_PythonIntegration& pyint,
     GRAMS_TOF_Analyzer& analyzer,
-    GRAMS_TOF_EventClient& eventClient)
-    : pyint_(pyint), analyzer_(analyzer), eventClient_(eventClient), table_{}
+    GRAMS_TOF_EventClient& eventClient,
+    GRAMS_TOF_SystemEventListener& listener)
+    : pyint_(pyint), analyzer_(analyzer), eventClient_(eventClient), listener_(listener), table_{}
 {
     auto& config = GRAMS_TOF_Config::instance();
 
@@ -141,6 +142,13 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().info("[RESET] System reset complete. Ready for new START.");
             return true;
         });
+    };
+
+    // RECONNECT_NETWORK
+    table_[TOFCommandCode::RECONNECT_NETWORK] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Manual network reconnection requested...");
+        listener_.onNetworkResetRequested(); 
+        return true;
     };
 
     // INIT_SYSTEM
@@ -287,7 +295,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     // ACQUIRE_THRESHOLD_CALIBRATION_D (Dark counts only) ---
     table_[TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
-            auto timestampStr = config.getCurrentTimestamp();
+            auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "disc_calibration", "_baseline.tsv");
             Logger::instance().warn("[Dispatch] Starting Baseline/Noise calibration in background...");
             
             std::vector<std::string> sArgs;
@@ -372,6 +380,22 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         }
     };
 
+    // SET_FEM_POWER_OFF 
+    table_[TOFCommandCode::SET_FEM_POWER_OFF] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::SET_FEM_POWER_OFF, [&]() {
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing toggle_system_power.py script...");
+            return pyint_.runPetsysToggleSystemPower("scripts.toggle_system_power", "off");
+        });
+    };
+
+    // SET_FEM_POWER_ON 
+    table_[TOFCommandCode::SET_FEM_POWER_ON] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::SET_FEM_POWER_ON, [&]() {
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Executing toggle_system_power.py script...");
+            return pyint_.runPetsysToggleSystemPower("scripts.toggle_system_power", "on");
+        });
+    };
+
     // PROCESS_THRESHOLD_CALIBRATION
     table_[TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION, [&]() {
@@ -383,7 +407,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 config.makeFilePathWithTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv"),
                 config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr, "root")
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv"),
+            config.copyOrLink(config.getFileByTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, ".tsv", true),
                               config.getAbsolutePath("main", "disc_calibration_table"), true);
             return output;
         });
@@ -478,7 +502,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Converting stg1 to stg2...");
             return analyzer_.runPetsysConvertStg1ToStg2(
-								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr),
+								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
                 config.getSTG2Dir()
             );
         });
@@ -490,7 +514,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Running TOF coin evt calculation...");
             return analyzer_.runPetsysProcessTofCoinEvtQA(
-                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr),
+                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
 								config.getSTG2Dir(),
                 config.getString("main", "tdc_calibration_table"),
                 config.getString("main", "qdc_calibration_table"),
@@ -535,7 +559,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     //  MACRO_THERMAL_CALIB
     table_[TOFCommandCode::MACRO_THERMAL_CALIB] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::MACRO_THERMAL_CALIB, [&]() {
-            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Starting 10-step Thermal Calib Sequence...");
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Starting 11-step Thermal Calib Sequence...");
 
             // ---------------------------------------------------
             //Redirect all DAQ file outputs to this folder 
@@ -556,6 +580,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::START_DAQ,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS,
                 TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
                 TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
                 TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
                 TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
@@ -588,6 +613,70 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             config.clearVaultPath();
  
             Logger::instance().info("[GRAMS_TOF_CommandDispatch] All Thermal Calib steps completed successfully.");
+            return true;
+        });
+    };
+
+    //  MACRO_AUTO_RUN_SEQUENCE
+    table_[TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, [&]() {
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Starting 14-step Auto Run Sequence...");
+
+            // ---------------------------------------------------
+            //Redirect all DAQ file outputs to this folder 
+            std::string timestamp = config.getCurrentTimestamp();
+            std::string vaultDir = config.getTOFDataDir() + "/vault/auto_run/run_" + timestamp; 
+            Logger::instance().warn("[GRAMS_TOF_CommandDispatch] Initializing AutoRun Vault: {}", vaultDir);
+            try {
+                std::filesystem::create_directories(vaultDir);
+            } catch (const std::exception& e) {
+                Logger::instance().error("[Macro] Could not create vault: {}", e.what());
+                return false;
+            }
+            config.setVaultPath(vaultDir);
+            // ---------------------------------------------------
+ 
+            std::vector<TOFCommandCode> sequence = {
+                TOFCommandCode::STOP_DAQ,
+                TOFCommandCode::START_DAQ,
+                //TOFCommandCode::MAKE_BIAS_CALIB_TABLE,
+                //TOFCommandCode::MAKE_SIMPLE_BIAS_SET_TABLE, 
+                //TOFCommandCode::MAKE_SIMPLE_CHANNEL_MAP, 
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::CONVERT_RAW_TO_RAW,
+                TOFCommandCode::CONVERT_STG1_TO_STG2,
+                TOFCommandCode::PROCESS_QA_COIN,
+                TOFCommandCode::PROCESS_QA_IRIDIUM
+            };
+    
+            for (auto cmd : sequence) {
+                Logger::instance().info("[GRAMS_TOF_CommandDispatch:Macro] Executing step: 0x{:04X}", static_cast<uint16_t>(cmd));
+                
+                if (!this->dispatch(cmd, {})) {
+                    Logger::instance().error("[GRAMS_TOF_CommandDispatch:Macro] Step 0x{:04X} failed. Aborting macro.", static_cast<uint16_t>(cmd));
+                    return false;
+                }
+    
+                bool is_running = true;
+                while (is_running) {
+                    std::this_thread::sleep_for(std::chrono::seconds(2));
+                    std::lock_guard<std::mutex> lock(pidMutex_);
+                    is_running = false;
+                    for (auto const& [pid, code] : activeBackgroundPIDs_) {
+                        if (code == cmd) {
+                            is_running = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            config.clearVaultPath();
+ 
+            Logger::instance().info("[GRAMS_TOF_CommandDispatch] All Auto Run steps completed successfully.");
             return true;
         });
     };

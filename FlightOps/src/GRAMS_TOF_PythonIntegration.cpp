@@ -111,6 +111,11 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
     bool runPetsysStopDAQ(const std::string& scriptPath) {
         return runPythonFunction(scriptPath, "safe_stop_daq");
     }
+
+    bool runPetsysToggleSystemPower(const std::string& scriptPath, 
+                                    const std::string& mode) {
+        return runPythonFunction(scriptPath, "safe_toggle_system_power", mode);
+    }
     
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
                                            const std::string& outputFile,
@@ -235,6 +240,10 @@ public:
     bool runPetsysStopDAQ(const std::string& scriptPath) {
         return impl_->runPetsysStopDAQ(scriptPath);
     }
+    bool runPetsysToggleSystemPower(const std::string& scriptPath,
+                                    const std::string& mode) {
+        return impl_->runPetsysToggleSystemPower(scriptPath, mode);
+    }
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
                                            const std::string& outputFile,
                                            const std::vector<int>& portIDs,
@@ -356,6 +365,11 @@ bool GRAMS_TOF_PythonIntegration::runPetsysInitSystem(const std::string& scriptP
 
 bool GRAMS_TOF_PythonIntegration::runPetsysStopDAQ(const std::string& scriptPath) {
     return impl_->runPetsysStopDAQ(scriptPath);
+}
+
+bool GRAMS_TOF_PythonIntegration::runPetsysToggleSystemPower(const std::string& scriptPath,
+    const std::string& mode) {
+    return impl_->runPetsysToggleSystemPower(scriptPath, mode);
 }
 
 bool GRAMS_TOF_PythonIntegration::runPetsysMakeBiasCalibrationTable(

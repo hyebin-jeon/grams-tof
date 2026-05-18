@@ -91,6 +91,7 @@ enum class CommunicationCodes : uint16_t {
   TOF_Start_DAQ                        = construct_code(0x0,   COM_SUBSYSTEM_TOF_MSK),
   TOF_Stop_DAQ                         = construct_code(0x1,   COM_SUBSYSTEM_TOF_MSK),
   TOF_Reset_DAQ                        = construct_code(0x2,   COM_SUBSYSTEM_TOF_MSK),
+  TOF_Reconnect_Network                = construct_code(0x3,   COM_SUBSYSTEM_TOF_MSK),
 
   TOF_Init_System                      = construct_code(0x100, COM_SUBSYSTEM_TOF_MSK),
   TOF_Make_Bias_Calib_Table            = construct_code(0x101, COM_SUBSYSTEM_TOF_MSK),
@@ -102,8 +103,10 @@ enum class CommunicationCodes : uint16_t {
   TOF_Acquire_TDC_Calibration          = construct_code(0x107, COM_SUBSYSTEM_TOF_MSK),
   TOF_Acquire_QDC_Calibration          = construct_code(0x108, COM_SUBSYSTEM_TOF_MSK),
   TOF_Acquire_SiPM_Data                = construct_code(0x109, COM_SUBSYSTEM_TOF_MSK),
-  TOF_Acquire_Threshold_Calibration_BN = construct_code(0x110, COM_SUBSYSTEM_TOF_MSK),
-  TOF_Acquire_Threshold_Calibration_D  = construct_code(0x111, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Acquire_Threshold_Calibration_BN = construct_code(0x10A, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Acquire_Threshold_Calibration_D  = construct_code(0x10B, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Set_FEM_Power_Off                = construct_code(0x10C, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Set_FEM_Power_On                 = construct_code(0x10D, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_Process_Threshold_Calibration    = construct_code(0x200, COM_SUBSYSTEM_TOF_MSK),
   TOF_Process_TDC_Calibration          = construct_code(0x201, COM_SUBSYSTEM_TOF_MSK),
@@ -116,6 +119,7 @@ enum class CommunicationCodes : uint16_t {
   TOF_Process_QA_Iridium               = construct_code(0x302, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_Macro_Thermal_Calib              = construct_code(0x500, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Auto_Run_Sequence          = construct_code(0x501, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_ACK                              = construct_code(0xFFF, COM_SUBSYSTEM_TOF_MSK),
   TOF_Callback                         = construct_code(0xFFE, COM_SUBSYSTEM_TOF_MSK),

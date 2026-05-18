@@ -30,6 +30,7 @@ public:
     GRAMS_TOF_EventClient& operator=(const GRAMS_TOF_EventClient&) = delete;
 
     bool isConnected() const;
+    bool isHealthy() const;
     bool sendMonitorData(TOFCommandCode code, const GRAMS_TOF_MonitorCodec::MonitorData& data);
 
 private:

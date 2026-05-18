@@ -6,6 +6,8 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <chrono>
+#include <iomanip>
 
 #include <fmt/format.h>
 
@@ -48,9 +50,12 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         const char* color = getColor(level);
         const char* label = getLabel(level);
+        std::string timestamp = getTimestamp();
 
         std::ostringstream formatted;
-        formatted << label << ": " << fmt::format(fmt_str, std::forward<Args>(args)...) << "\n";
+        //formatted << label << ": " << fmt::format(fmt_str, std::forward<Args>(args)...) << "\n";
+        formatted << label << " (" << timestamp << ")]: " 
+                  << fmt::format(fmt_str, std::forward<Args>(args)...) << "\n";
 
         // Output to terminal
         std::cout << color << formatted.str() << LogColor::RESET;
@@ -68,7 +73,7 @@ public:
     }
 
     template<typename... Args>
-    void warn(const std::string& fmt, Args&&... args) {
+            void warn(const std::string& fmt, Args&&... args) {
         log(Level::Warning, fmt, std::forward<Args>(args)...);
     }
 
@@ -90,6 +95,15 @@ public:
 private:
     Logger() = default;
 
+    std::string getTimestamp() {
+        auto now = std::chrono::system_clock::now();
+        auto in_time_t = std::chrono::system_clock::to_time_t(now);
+
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
+        return ss.str();
+    }
+
     const char* getColor(Level level) const {
         using namespace LogColor;
         switch (level) {
@@ -104,10 +118,10 @@ private:
 
     const char* getLabel(Level level) const {
         switch (level) {
-            case Level::Info:    return "[INFO]";
-            case Level::Warning: return "[WARN]";
-            case Level::Error:   return "[ERROR]";
-            case Level::Debug:   return "[DEBUG]";
+            case Level::Info:    return "[INFO  ]";
+            case Level::Warning: return "[WARN  ]";
+            case Level::Error:   return "[ERROR ]";
+            case Level::Debug:   return "[DEBUG ]";
             case Level::Detail:  return "[DETAIL]";
         }
         return "[LOG]";

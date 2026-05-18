@@ -53,7 +53,8 @@ private:
     std::unique_ptr<GRAMS_TOF_Client> hubConnection_;
     mutable std::mutex connectionMutex_; // Protects access to hubConnection_
 
-    // ACK healty checker
+    // healty checker
     std::chrono::steady_clock::time_point last_activity_time_;
-    const std::chrono::seconds heartbeat_timeout_{5}; //default 5 sec
+    //const std::chrono::seconds heartbeat_timeout_{5}; //default 5 sec
+    const std::chrono::seconds heartbeat_timeout_{3600*24}; //1 day: heartbeat free 
 };

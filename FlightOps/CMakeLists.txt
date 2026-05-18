@@ -67,6 +67,9 @@ else()
     add_executable(test_grams_tof_root tools/test_grams_tof_root.cpp)
     target_link_libraries(test_grams_tof_root PRIVATE GramsTofFlightOpsLib)
 
+    add_executable(tof_cmd_executor tools/tof_cmd_executor.cpp)
+    target_link_libraries(tof_cmd_executor PRIVATE GramsTofFlightOpsLib)
+
     # ----------------- Install Targets -----------------
     install(TARGETS GramsTofFlightOpsLib
         EXPORT GramsTofLibraryTargets
@@ -91,6 +94,9 @@ else()
         RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     )
     install(TARGETS test_grams_tof_root
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    )
+    install(TARGETS tof_cmd_executor
         RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     )
 
