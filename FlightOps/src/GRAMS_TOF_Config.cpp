@@ -1,5 +1,6 @@
 #include "GRAMS_TOF_Config.h"
 #include "GRAMS_TOF_Logger.h"
+#include "GRAMS_TOF_RuntimeError.h"
 #include "INIReader.h"
 
 #include <cstdlib>
@@ -26,13 +27,13 @@ bool GRAMS_TOF_Config::loadDefaultConfig() {
 
     const char* glibPath = std::getenv("GLIB");
     if (!glibPath) {
-        std::cerr << "Error: GLIB environment variable not set. Default config not loaded." << std::endl;
+        Logger::instance().error("[Config] GLIB environment variable not set. Default config not loaded.");
         return false;
     }
 
     const char* tofdata = std::getenv("TOFDATA");
     if (!tofdata) {
-        std::cerr << "Error: TOFDATA environment variable is not set. Cannot continue." << std::endl;
+        Logger::instance().error("[Config] TOFDATA environment variable is not set. Cannot continue.");
         return false;
     } else {
         config.tofdataDir_ = tofdata;
@@ -44,10 +45,10 @@ bool GRAMS_TOF_Config::loadDefaultConfig() {
     if (config.load(defaultPathStr)) {
         config.configFilePath_ = defaultPathStr;
         config.loaded_ = true;
-        std::cout << "Info: Default config loaded from GLIB: " << defaultPathStr << std::endl;
+        Logger::instance().info("[Config] Default config loaded from GLIB: {}", defaultPathStr);
         return true;
     } else {
-        std::cerr << "Warning: Failed to load default config from " << defaultPathStr << std::endl;
+        Logger::instance().warn("[Config] Failed to load default config from {}", defaultPathStr);
         return false;
     }
 }
@@ -58,7 +59,7 @@ void GRAMS_TOF_Config::setConfigFile(const std::string& filename) {
     }
     if (!load(filename)) {
         // The empty string path was failing here!
-        throw std::runtime_error("Failed to load config file: " + filename);
+        throw GRAMS_TOF_RuntimeError("[Config] Failed to load config file: " + filename);
     }
     configFilePath_ = filename;
     loaded_ = true;
@@ -96,7 +97,7 @@ std::string GRAMS_TOF_Config::substituteVariables(const std::string& value) cons
     if ((pos = result.find("$TOFDATA")) != std::string::npos) {
         const char* tofdata = std::getenv("TOFDATA");
         if (tofdata) result.replace(pos, 8, tofdata);
-        else throw std::runtime_error("TOFDATA environment variable not set.");
+        else throw GRAMS_TOF_RuntimeError("[Config] TOFDATA environment variable not set.");
     }
 
     return result;
@@ -104,9 +105,9 @@ std::string GRAMS_TOF_Config::substituteVariables(const std::string& value) cons
 
 std::string GRAMS_TOF_Config::getString(const std::string& section, const std::string& key) const {
     auto secIt = data_.find(section);
-    if (secIt == data_.end()) throw std::runtime_error("Missing section: " + section);
+    if (secIt == data_.end()) throw GRAMS_TOF_RuntimeError("[Config] Missing section: " + section);
     auto keyIt = secIt->second.find(key);
-    if (keyIt == secIt->second.end()) throw std::runtime_error("Missing key: " + key);
+    if (keyIt == secIt->second.end()) throw GRAMS_TOF_RuntimeError("[Config] Missing key: " + key);
     return keyIt->second;
 }
 
@@ -138,7 +139,7 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
 
     fs::path dir(absDir);
     if (!fs::exists(dir) || !fs::is_directory(dir))
-        throw std::runtime_error("Directory does not exist: " + dir.string());
+        throw GRAMS_TOF_RuntimeError("[Config] Directory does not exist: " + dir.string());
 
     std::string pattern;
     if (strict) pattern = prefix + "_" + timestamp + ext + "$"; 
@@ -153,8 +154,8 @@ std::string GRAMS_TOF_Config::getFileByTimestamp(
             return entry.path().string();
     }
 
-    throw std::runtime_error(
-        "No file found for timestamp " + timestamp + 
+    throw GRAMS_TOF_RuntimeError(
+        "[Config] No file found for timestamp " + timestamp + 
         " with ext'" + ext + "' in " + dir.string()
     );
 }
@@ -186,7 +187,7 @@ std::string GRAMS_TOF_Config::getLatestTimestamp(
 
     fs::path dir(absDir);
     if (!fs::exists(dir) || !fs::is_directory(dir))
-        throw std::runtime_error("Directory does not exist: " + dir.string());
+        throw GRAMS_TOF_RuntimeError("[Config] Directory does not exist: " + dir.string());
 
     std::string pattern;
     if (strict) pattern = prefix + R"(_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d+Z))" + suffix + "$";
@@ -210,7 +211,7 @@ std::string GRAMS_TOF_Config::getLatestTimestamp(
     }
 
     if (latestTs.empty()) {
-        throw std::runtime_error("No matching file found with suffix '" + suffix + "' in " + dir.string());
+        throw GRAMS_TOF_RuntimeError("[Config] No matching file found with suffix '" + suffix + "' in " + dir.string());
     }
 
     return latestTs;
@@ -240,13 +241,13 @@ void GRAMS_TOF_Config::copyOrLink(const std::string& srcPath, const std::string&
     fs::path dst(dstPath);
 
     Logger::instance().info(
-        "[GRAMS_TOF_Config] copyOrLink: src='{}', dst='{}', mode={}",
+        "[Config] copyOrLink: src='{}', dst='{}', mode={}",
         src.string(),
         dst.string(),
         symlink ? "symlink" : "copy"
     );
 
-    if (!fs::exists(src)) throw std::runtime_error("Source file does not exist: " + src.string());
+    if (!fs::exists(src)) throw GRAMS_TOF_RuntimeError("[Config] Source file does not exist: " + src.string());
 
     if (fs::exists(dst) || fs::is_symlink(dst)) {
         fs::remove_all(dst);

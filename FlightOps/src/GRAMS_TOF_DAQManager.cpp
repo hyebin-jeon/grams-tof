@@ -1,5 +1,6 @@
 #include "GRAMS_TOF_DAQManager.h"
 #include "GRAMS_TOF_Logger.h"
+#include "GRAMS_TOF_RuntimeError.h"
 #include "FrameServer.h"
 #include "UDPFrameServer.h"
 #include "PFP_KX7.h"
@@ -22,7 +23,7 @@ using namespace PETSYS;
 static std::atomic<bool> globalUserStop(false);
 
 static void catchUserStop(int signal) {
-    fprintf(stderr, "Caught signal %d\n", signal);
+    Logger::instance().warn("[DAQManager] Caught process termination signal {}", signal);
     globalUserStop.store(true, std::memory_order_relaxed);
 }
 
@@ -55,8 +56,7 @@ bool GRAMS_TOF_DAQManager::initialize() {
     signal(SIGHUP, catchUserStop);
 
     if (daqCardList_.size() > 2) {
-        fprintf(stderr, "Maximum number of DAQ cards (2) exceeded.\n");
-        return false;
+        throw GRAMS_TOF_RuntimeError("[DAQManager] Maximum number of DAQ cards (2) exceeded.");
     }
     if (daqCardList_.empty()) daqCardList_.push_back("/dev/psdaq0");
     if (daqCardList_.size() == 2) daqCardPortBits_ = 2;
@@ -70,21 +70,21 @@ bool GRAMS_TOF_DAQManager::initialize() {
 
 
     FrameServer::allocateSharedMemory(shmName_.c_str(), shmfd_, shmPtr_);
-    if ((shmfd_ == -1) || (shmPtr_ == nullptr)) return false;
+    if ((shmfd_ == -1) || (shmPtr_ == nullptr)) 
+      throw GRAMS_TOF_RuntimeError("[DAQManager] Failed to allocate shared memory segment: " + shmName_);
 
     if (daqType_ == "GBE") {
         frameServer_ = UDPFrameServer::createFrameServer(shmName_.c_str(), shmfd_, shmPtr_, debugLevel_);
     } else if (daqType_ == "PFP_KX7") {
         for (const auto& path : daqCardList_) {
             AbstractDAQCard* card = PFP_KX7::openCard(path.c_str());
-            if (!card) return false;
+            if (!card) throw GRAMS_TOF_RuntimeError("[DAQManager] Failed to open FPGA PCIe card at path: " + path);
             daqCards_.push_back(card);
         }
         frameServer_ = DAQFrameServer::createFrameServer(
             daqCards_, daqCardPortBits_, shmName_.c_str(), shmfd_, shmPtr_, debugLevel_);
     } else {
-        fprintf(stderr, "Unsupported DAQ type: %s\n", daqType_.c_str());
-        return false;
+        throw GRAMS_TOF_RuntimeError("[DAQManager] Unsupported DAQ hardware architecture variant: " + daqType_);
     }
 
     return frameServer_ != nullptr;
@@ -107,7 +107,7 @@ int GRAMS_TOF_DAQManager::createListeningSocket() {
     struct sockaddr_un address;
     int fd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
-        perror("socket()");
+        Logger::instance().error("[DAQManager] socket() system call failed: {}", std::strerror(errno)); 
         return -1;
     }
 
@@ -117,14 +117,14 @@ int GRAMS_TOF_DAQManager::createListeningSocket() {
 
     unlink(socketPath_.c_str());
     if (bind(fd, (struct sockaddr*)&address, sizeof(address)) != 0) {
-        perror("bind()");
+        Logger::instance().error("[DAQManager] bind() on UNIX socket failed: {}", std::strerror(errno));
         ::close(fd);
         return -1;
     }
 
     chmod(socketPath_.c_str(), 0660);
     if (listen(fd, 5) != 0) {
-        perror("listen()");
+        Logger::instance().error("[DAQManager] listen() call backlogged failed: {}", std::strerror(errno));
         ::close(fd);
         return -1;
     }
@@ -134,17 +134,21 @@ int GRAMS_TOF_DAQManager::createListeningSocket() {
 
 void GRAMS_TOF_DAQManager::pollSocket() {
     int epoll_fd = epoll_create(10);
-    if (epoll_fd == -1) { perror("epoll_create()"); return; }
+    if (epoll_fd == -1) { 
+        Logger::instance().error("[DAQManager] epoll_create failed: {}", std::strerror(errno));
+        return; 
+    }
 
     struct epoll_event event = {};
     event.data.fd = GRAMS_TOF_FDManager::instance().getServerFD(ServerKind::DAQ);
     event.events = EPOLLIN;
 
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event.data.fd, &event) == -1) {
-        perror("epoll_ctl()");
+        Logger::instance().error("[DAQManager] epoll_ctl ADD server_fd failed: {}", std::strerror(errno));   
         ::close(epoll_fd);
         return;
     }
+
     // DEBUG
     // Use PETSYS::Client to manage DAQ connections.
     // Definitely don't use GRAMS_TOF_Client. 
@@ -156,6 +160,8 @@ void GRAMS_TOF_DAQManager::pollSocket() {
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGTERM);
+
+    Logger::instance().info("[DAQManager] Core hardware poll loop started spinning.");
 
     while (!globalUserStop.load(std::memory_order_relaxed)) {
         memset(&event, 0, sizeof(event));
@@ -175,13 +181,12 @@ void GRAMS_TOF_DAQManager::pollSocket() {
                 continue; 
             }
 
-            fprintf(stderr, "[DAQManager] Got new client_fd=%d (server_fd=%d)\n",
-                         new_fd, fd_in_event);
+            Logger::instance().info("[DAQManager] Accepted incoming data pipeline connection: client_fd={}, server_fd={}", new_fd, fd_in_event);
 
             event.data.fd = new_fd;
             event.events = EPOLLIN | EPOLLERR | EPOLLHUP;
             if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &event) == -1) {
-                perror("epoll_ctl add client_fd");
+                Logger::instance().error("[DAQManager] epoll_ctl add client_fd failed: {}", std::strerror(errno));
                 ::close(new_fd);
                 continue;
             }
@@ -197,7 +202,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
 
             // New: Check for errors/hang-ups first
             if ((event.events & EPOLLHUP) || (event.events & EPOLLERR)) {
-                 fprintf(stderr, "[DAQManager] Client hung up or error on client_fd=%d\n", fd_in_event);
+                 Logger::instance().warn("[DAQManager] Pipeline partner disconnected or dropped on client_fd={}", fd_in_event);
                  goto client_cleanup;
             }
 
@@ -205,7 +210,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
             if (event.events & EPOLLIN) {
                 int actionStatus = client->handleRequest();
                 if (actionStatus == -1) {
-                    fprintf(stderr, "[DAQManager] Error handling request from client_fd=%d\n", fd_in_event);
+                    Logger::instance().error("[DAQManager] Processing interface request error on client_fd={}", fd_in_event);
                     goto client_cleanup;
                 }
             }
@@ -213,7 +218,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
 
         // New Cleanup Block
         client_cleanup:
-            fprintf(stderr, "[DAQManager] Closing client_fd=%d\n", fd_in_event);
+            Logger::instance().info("[DAQManager] Closing and unregistering client_fd={}", fd_in_event);
             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd_in_event, nullptr);
             // Client destructor (called on erase) handles closing the socket
             clientList.erase(it);
@@ -229,12 +234,15 @@ void GRAMS_TOF_DAQManager::pollSocket() {
     ::close(epoll_fd);
     //GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::DAQ);
     //unlink(socketPath_.c_str());
+    Logger::instance().info("[DAQManager] Hardware server routine exited cleanly.");
 }
 
 
 void GRAMS_TOF_DAQManager::cleanup() {
+    Logger::instance().info("[DAQManager] Initiating underlying hardware resource release sequences...");
     if (frameServer_) delete frameServer_;
     for (auto* card : daqCards_) delete card;
     FrameServer::freeSharedMemory(shmName_.c_str(), shmfd_, shmPtr_);
+    Logger::instance().info("[DAQManager] Shared memory rings freed, resources destroyed successfully.");
 }
 

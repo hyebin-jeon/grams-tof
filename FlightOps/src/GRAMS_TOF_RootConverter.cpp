@@ -1,10 +1,15 @@
 #include "GRAMS_TOF_RootConverter.h"
+#include "GRAMS_TOF_Logger.h"
+#include "GRAMS_TOF_RuntimeError.h"
 #include <cstring>
 
 std::vector<GRAMS_TOF_MonitorCodec::MonitorData> GRAMS_TOF_RootConverter::scanFile(const std::string& path, uint32_t runNum) {
     std::vector<GRAMS_TOF_MonitorCodec::MonitorData> results;
     TFile* f = TFile::Open(path.c_str(), "READ");
-    if (!f || f->IsZombie()) return results;
+    if (!f || f->IsZombie()) {
+        Logger::instance().error("[RootConverter] Failed to open target ROOT file asset or file is corrupted: {}", path);
+        return results;
+    }
 
     TIter next(f->GetListOfKeys());
     TKey* key;
@@ -94,7 +99,7 @@ TH1* GRAMS_TOF_RootConverter::toRootObject(const GRAMS_TOF_MonitorCodec::Monitor
         h = h2;
     } 
     // 4. Handle TH1F (Default / hist_type == 1)
-    else {
+    else if (data.hist_type == 3) {
         TH1F* h1 = new TH1F(hName.c_str(), hName.c_str(), 
                             data.n_bins_x, data.x_min, data.x_max);
 
@@ -104,6 +109,9 @@ TH1* GRAMS_TOF_RootConverter::toRootObject(const GRAMS_TOF_MonitorCodec::Monitor
             h1->SetBinContent(i, val);
         }
         h = h1;
+    }
+    else {
+        throw GRAMS_TOF_RuntimeError(fmt::format("[RootConverter] Malformed or unsupported monitor data type tag: {}", data.hist_type));
     }
 
     return h;

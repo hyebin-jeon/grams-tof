@@ -1,6 +1,7 @@
 #include "GRAMS_TOF_DAQController.h"
 #include "CLI11.hpp" 
 #include "GRAMS_TOF_Logger.h" 
+#include "GRAMS_TOF_RuntimeError.h"
 #include <iostream>
 #include <memory>
 
@@ -26,36 +27,42 @@ int main(int argc, char* argv[]) {
 
     if (config.configFile.empty()) {
         if (!GRAMS_TOF_Config::loadDefaultConfig()) {
-            throw std::runtime_error("Configuration file not specified and default GLIB path failed to load.");
+            throw GRAMS_TOF_RuntimeError("[System] Configuration file not specified and fallback default GLIB path failed to load.");
         } else config.configFile =  GRAMS_TOF_Config::instance().getConfigFilePath();
     }
 
     std::unique_ptr<GRAMS_TOF_DAQController> daqController;
     try {
         daqController = std::make_unique<GRAMS_TOF_DAQController>(config);
-        if (!daqController->initialize()) return 1;
+        if (!daqController->initialize()) {
+            Logger::instance().error("[System] DAQ controller initialization loop refused to start. Aborting execution.");
+            return 1;
+        }
 
-        Logger::instance().info("[System] Press Enter to quit");
+        Logger::instance().info("[System] TOF DAQ Online. Press [Enter] at any point to trigger a clean system shutdown.");
 
         std::thread runThread([&](){ daqController->run(); });
         std::cin.get(); // Blocking wait for user input to trigger shutdown
         
         // 4. Shutdown
+        Logger::instance().info("[System] Shutdown request verified. Stopping engine loops...");
         daqController->stop();
         if (runThread.joinable()) {
             runThread.join();
         }
-
-    } catch (const std::exception& e) {
-        // We use Logger::instance() which should be set up by the constructor
-        Logger::instance().error("[System] Fatal Error during setup/run: {}", e.what());
-        return 1;
-    } catch (...) {
-        Logger::instance().error("[System] Unknown Fatal Error.");
+        Logger::instance().info("[System] DAQ application closed cleanly.");
+        return 0;
+    } 
+    catch (const GRAMS_TOF_RuntimeError& e) {
+        Logger::instance().error("[System] Core Panic: Exception caught at process boundary: {}", e.what());
         return 1;
     }
-
-    Logger::instance().info("[System] Exiting");
-    return 0;
+    catch (const std::exception& e) {
+        Logger::instance().error("[System] Standard Library Exception caught at process boundary: {}", e.what());
+        return 1;
+    } catch (...) {
+        Logger::instance().error("[System] Unknown structural exception intercepted at process boundary.");
+        return 1;
+    }
 }
 
