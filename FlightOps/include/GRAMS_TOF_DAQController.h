@@ -7,6 +7,7 @@
 #include "GRAMS_TOF_EventClient.h"
 #include "GRAMS_TOF_CommandDispatch.h"
 #include "GRAMS_TOF_Logger.h"
+#include "GRAMS_TOF_RuntimeError.h"
 #include "GRAMS_TOF_Config.h"
 #include "GRAMS_TOF_CommandCodec.h"
 #include "GRAMS_TOF_CommandDispatch.h"

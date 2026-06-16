@@ -42,7 +42,5 @@ private:
     PETSYS::FrameServer* frameServer_;
     std::vector<PETSYS::AbstractDAQCard*> daqCards_;
     bool is_acq_running_;
-
-    // FDs are now managed via GRAMS_TOF_FDManager singleton
 };
 

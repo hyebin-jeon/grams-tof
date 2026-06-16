@@ -121,7 +121,7 @@ void GRAMS_TOF_CommandClient::run() {
 
         Logger::instance().info("[CommandClient] Attempting to connect to Hub {}:{}", hub_ip_, port_);
         if (connect(connected_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-            Logger::instance().error("[CommandClient] connect() failed: {}", std::strerror(errno));
+            Logger::instance().warn("[CommandClient] Connection attempt failed (Hub offline?): {}", std::strerror(errno));
             ::close(connected_fd);
             GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::COMMAND);
             std::this_thread::sleep_for(std::chrono::seconds(1)); 
@@ -215,7 +215,7 @@ void GRAMS_TOF_CommandClient::run() {
 
                     if (incoming_buffer.size() < expectedSize) {
                         // Not enough data for the full packet. Break and wait for the next EPOLLIN event.
-                        Logger::instance().debug("[CommandClient] Fragmented packet. Needed={}, Current={}", expectedSize, incoming_buffer.size());
+                        Logger::instance().error("[CommandClient] Fragmented packet. Needed={}, Current={}", expectedSize, incoming_buffer.size());
                         break; 
                     }
 
