@@ -2,6 +2,7 @@ project(Grams_Tof_Daqd)
 message("${BMagenta}[============ Entering TOF Daqd Subdirectory ============]${ColReset}")
 
 file(GLOB SOURCES "src/*.cpp")
+list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/DaqdInterceptor.cpp")
 file(GLOB HEADERS "include/*.h")
 
 find_package(Boost REQUIRED COMPONENTS python3 regex)
@@ -15,6 +16,11 @@ include_directories(${Boost_INCLUDE_DIRS})
 ########################################################################################################################
 # Make a lib for all the stuff
 add_library(GramsTofDaqdLib SHARED ${SOURCES})
+
+target_compile_options(GramsTofDaqdLib PRIVATE
+    -include "${CMAKE_CURRENT_SOURCE_DIR}/include/daqd_redirect.h"
+)
+
 target_include_directories(GramsTofDaqdLib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../kernel> 
@@ -22,6 +28,8 @@ target_include_directories(GramsTofDaqdLib PUBLIC
 )
 target_link_libraries(GramsTofDaqdLib PUBLIC GramsTofRawDataLib)
 target_link_libraries(GramsTofDaqdLib PUBLIC Python3::Python Boost::python3 ${Boost_LIBRARIES})
+target_link_libraries(GramsTofDaqdLib PRIVATE GramsTofLoggerInclude)
+target_link_libraries(GramsTofDaqdLib PRIVATE fmt::fmt)
 
 add_executable(daqd tools/daqd.cpp)
 target_link_libraries(daqd PRIVATE GramsTofDaqdLib)
