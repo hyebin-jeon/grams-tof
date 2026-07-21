@@ -31,7 +31,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 Logger::instance().error("[CommandDispatch][START] Failed to re-initialize DAQ Manager");
                 return false;
             }
-    
+   
             daqRunning_ = true;
             daqThread_ = std::thread(&GRAMS_TOF_CommandDispatch::runDAQThread, this);
             return true; 
@@ -42,8 +42,11 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     table_[TOFCommandCode::STOP_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::STOP_DAQ, [&]() {
             Logger::instance().warn("[CommandDispatch][STOP] Initiating Master Stop Sequence...");
-    
-            // 1. HARDWARE STOP (Trigger this IMMEDIATELY)
+   
+            // 0. Cancel macro loops
+            macroLoopRunning_ = false;
+ 
+            // 1. HARDWARE STOP (Non-blocking async process)
             std::string stopScriptPath = pyint_.resolveScriptPath("stop_daq.py");
             pid_t stop_pid = fork();
             if (stop_pid == 0) {
@@ -51,26 +54,35 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 execlp("python3", "python3", stopScriptPath.c_str(), nullptr);
                 _exit(1);
             } else if (stop_pid > 0) {
-                signal(SIGCHLD, SIG_IGN);
+                // Register with monitor thread so it reaps without blocking or setting SIG_IGN
+                {
+                    std::lock_guard<std::mutex> lock(pidMutex_);
+                    activeBackgroundTasks_[stop_pid] = BackgroundTask{TOFCommandCode::STOP_DAQ, nullptr};
+                }
                 Logger::instance().info("[CommandDispatch][STOP] Hardware stop script triggered (PID: {}).", stop_pid);
             }
-    
+   
             // 2. INTERRUPT MANAGED BACKGROUND PROCESSES
             {
                 std::lock_guard<std::mutex> lock(pidMutex_);
-                for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
-                    Logger::instance().info("[CommandDispatch][STOP] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
-                    kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, 2); 
+                for (auto const& [b_pid, task] : activeBackgroundTasks_) {
+                    if (b_pid != stop_pid) { 
+                        Logger::instance().info("[CommandDispatch][STOP] Terminating {} (PID: {})", static_cast<int>(task.commandCode), b_pid);
+                        kill(b_pid, SIGTERM);
+                        sendStatusCallback(task.commandCode, 2); 
+                    }
                 }
-                activeBackgroundPIDs_.clear();
+                activeBackgroundTasks_.clear();
+                if (stop_pid > 0) {
+                    activeBackgroundTasks_[stop_pid] = BackgroundTask{TOFCommandCode::STOP_DAQ, nullptr};
+                }
             }
-    
+
             // 3. SIGNAL SOFTWARE STOP
             pyint_.getDAQ().stop();
     
             // 4. JOIN THREAD 
-            if (daqThread_.joinable()) {
+            if (daqThread_.joinable() && std::this_thread::get_id() != daqThread_.get_id()) {
                 daqThread_.join();
                 Logger::instance().debug("[CommandDispatch][STOP] DAQ thread joined.");
             }
@@ -88,58 +100,28 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     // RESET_DAQ
     table_[TOFCommandCode::RESET_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RESET_DAQ, [&]() {
-            Logger::instance().info("[CommandDispatch][RESET] Initiating Master Reset (Matching Stop Sequence)...");
-        
-            // 1. HARDWARE STOP (Triggered IMMEDIATELY - Matches STOP_DAQ Step 1)
-            std::string stopScriptPath = pyint_.resolveScriptPath("stop_daq.py");
-            pid_t stop_pid = fork();
-            if (stop_pid == 0) {
-                for (int i = 3; i < 1024; ++i) ::close(i);
-                execlp("python3", "python3", stopScriptPath.c_str(), nullptr);
-                _exit(1);
-            } else if (stop_pid > 0) {
-                signal(SIGCHLD, SIG_IGN);
-                Logger::instance().info("[CommandDispatch][RESET] Hardware stop script triggered (PID: {}).", stop_pid);
+            Logger::instance().info("[CommandDispatch][RESET] Initiating Reset (STOP -> START pipeline)...");
+    
+            // 1. Invoke the core logic of STOP_DAQ inline 
+            if (table_.count(TOFCommandCode::STOP_DAQ)) {
+                Logger::instance().info("[CommandDispatch][RESET] Step 1: Executing STOP sequence...");
+                table_[TOFCommandCode::STOP_DAQ](argv); 
             }
-        
-            // 2. INTERRUPT MANAGED BACKGROUND PROCESSES (Matches STOP_DAQ Step 2)
-            {
-                std::lock_guard<std::mutex> lock(pidMutex_);
-                for (auto const& [b_pid, b_code] : activeBackgroundPIDs_) {
-                    Logger::instance().warn("[CommandDispatch][RESET] Terminating {} (PID: {})", static_cast<int>(b_code), b_pid);
-                    kill(b_pid, SIGTERM);
-                    sendStatusCallback(b_code, 2); 
-                }
-                activeBackgroundPIDs_.clear();
-            }
-        
-            // 3. SIGNAL SOFTWARE STOP (Matches STOP_DAQ Step 3)
-            pyint_.getDAQ().stop();
-        
-            // 4. JOIN THREAD (Matches STOP_DAQ Step 4)
-            if (daqThread_.joinable()) {
-                daqThread_.join();
-                Logger::instance().debug("[CommandDispatch][RESET] DAQ thread joined.");
-            }
-        
-            // --- RESET SPECIFIC ADDITIONS (Re-initialization) ---
-            // 5. MANAGER CLEANUP
-            pyint_.getDAQ().cleanup(); 
+    
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+            // 2. Invoke the core logic of START_DAQ inline
+            if (table_.count(TOFCommandCode::START_DAQ)) {
+                Logger::instance().info("[CommandDispatch][RESET] Step 2: Executing START sequence...");
+                bool start_success = table_[TOFCommandCode::START_DAQ](argv);
                 
-            std::this_thread::sleep_for(std::chrono::milliseconds(200)); 
-        
-            // 6. RE-INITIALIZE
-            if (!pyint_.getDAQ().initialize()) {
-                Logger::instance().error("[CommandDispatch][RESET] Failed to re-initialize DAQ Manager");
-                return false;
+                if (!start_success) {
+                    Logger::instance().error("[CommandDispatch][RESET] Pipeline failed: START_DAQ rejected initialization.");
+                    return false;
+                }
             }
-        
-            {
-                std::lock_guard<std::mutex> lock(daqMutex_);
-                daqRunning_ = false;
-            }
-        
-            Logger::instance().info("[CommandDispatch][RESET] System reset complete. Ready for new START.");
+    
+            Logger::instance().info("[CommandDispatch][RESET] System successfully cycled and restarted.");
             return true;
         });
     };
@@ -272,47 +254,73 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Starting Baseline/Noise calibration in background...");
-            
+    
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr);
+    
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr));
+            sArgs.push_back(outPathPrefix);
             sArgs.push_back("--mode");
             sArgs.push_back("baseline_noise");
             sArgs.push_back("--nreads-noise");
             sArgs.push_back(std::to_string(argv.size() > 0 ? argv[0] : 4));
             bool bias = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (bias) sArgs.push_back("--ext-bias");
-
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN, "acquire_threshold_calibration.py", sArgs);
+    
+            std::string generatedBaseline = outPathPrefix + "_baseline.tsv";
+            std::string stableConfigTarget = config.getConfigDir() + "/disc_calibration_baseline.tsv";
+    
+            auto callback = [generatedBaseline, stableConfigTarget](bool processSuccess) {
+                if (processSuccess) {
+                    try {
+                        auto& cfg = GRAMS_TOF_Config::instance();
+                        cfg.copyOrLink(generatedBaseline, stableConfigTarget, true);
+                        Logger::instance().info("[CommandDispatch] Centralized baseline symlink updated: {}", stableConfigTarget);
+                    } catch (const std::exception& e) {
+                        Logger::instance().error("[CommandDispatch] Symlink post-processing failed: {}", e.what());
+                    }
+                }
+            };
+    
+            return executeManagedBackground(
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN, 
+                "acquire_threshold_calibration.py", 
+                sArgs, 
+                callback
+            );
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_BN");
             return false;
         }
     };
-    
+
     // ACQUIRE_THRESHOLD_CALIBRATION_D (Dark counts only) ---
     table_[TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
-            auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "disc_calibration", "_baseline.tsv");
-            Logger::instance().info("[CommandDispatch] Starting Baseline/Noise calibration in background...");
-            
+            Logger::instance().info("[CommandDispatch] Starting Dark counts calibration in background...");
+    
+            // 1. Generate new timestamp for dark count output files
+            std::string currentTs = config.getCurrentTimestamp();
+    
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr));
+            // Output prefix inside current vault dir (e.g. disc_calibration_2026-07-21_18-59-35.432Z)
+            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", currentTs));
             sArgs.push_back("--mode");
             sArgs.push_back("dark");
-            sArgs.push_back("--nreads-noise");
+            sArgs.push_back("--nreads-dark");
             sArgs.push_back(std::to_string(argv.size() > 0 ? argv[0] : 4));
+            
             bool bias = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (bias) sArgs.push_back("--ext-bias");
-
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN, "acquire_threshold_calibration.py", sArgs);
-        } catch (...) {
-            Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_D");
+    
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D, "acquire_threshold_calibration.py", sArgs);
+        } catch (const std::exception& e) {
+            Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_D: {}", e.what());
             return false;
         }
     };
@@ -367,7 +375,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             sArgs.push_back("-o");
             sArgs.push_back(config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr));
             sArgs.push_back("--time");
-            sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : 300.0));
+            sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : sipmDataAcquisitionTime_.load()));
             sArgs.push_back("--mode");
             sArgs.push_back("qdc"); // Defaulting to QDC mode as per your previous logic
             bool hw_trig = (argv.size() > 1) ? (argv[1] != 0) : false;
@@ -559,124 +567,152 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     //  MACRO_THERMAL_CALIB
     table_[TOFCommandCode::MACRO_THERMAL_CALIB] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::MACRO_THERMAL_CALIB, [&]() {
-            Logger::instance().info("[CommandDispatch] Starting 11-step Thermal Calib Sequence...");
-
-            // ---------------------------------------------------
-            //Redirect all DAQ file outputs to this folder 
-            std::string timestamp = config.getCurrentTimestamp();
-            std::string vaultDir = config.getTOFDataDir() + "/vault/thermal_calib/run_" + timestamp; 
-            Logger::instance().info("[CommandDispatch] Initializing Thermal Vault: {}", vaultDir);
-            try {
-                std::filesystem::create_directories(vaultDir);
-            } catch (const std::exception& e) {
-                Logger::instance().error("[CommandDispatch][Macro] Could not create vault: {}", e.what());
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
                 return false;
             }
-            config.setVaultPath(vaultDir);
-            // ---------------------------------------------------
- 
-            std::vector<TOFCommandCode> sequence = {
-                TOFCommandCode::STOP_DAQ,
-                TOFCommandCode::START_DAQ,
-                TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
-                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
-                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
-                TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
-                TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
-                TOFCommandCode::PROCESS_TDC_CALIBRATION,
-                TOFCommandCode::PROCESS_QDC_CALIBRATION
-            };
-    
-            for (auto cmd : sequence) {
-                Logger::instance().info("[CommandDispatch][Macro] Executing step: 0x{:04X}", static_cast<uint16_t>(cmd));
-                
-                if (!this->dispatch(cmd, {})) {
-                    Logger::instance().error("[CommandDispatch][Macro] Step 0x{:04X} failed. Aborting macro.", static_cast<uint16_t>(cmd));
-                    return false;
-                }
-    
-                bool is_running = true;
-                while (is_running) {
-                    std::this_thread::sleep_for(std::chrono::seconds(2));
-                    std::lock_guard<std::mutex> lock(pidMutex_);
-                    is_running = false;
-                    for (auto const& [pid, code] : activeBackgroundPIDs_) {
-                        if (code == cmd) {
-                            is_running = true;
-                            break;
-                        }
-                    }
-                }
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
             }
-            config.clearVaultPath();
- 
-            Logger::instance().info("[CommandDispatch] All Thermal Calib steps completed successfully.");
+
+            macroLoopRunning_ = true; 
+            macroLoopThread_ = std::thread([this]() {
+                this->executeMacroSequence("ThermalCalib", "thermal_calib", {
+                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                    TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
+                    TOFCommandCode::PROCESS_TDC_CALIBRATION,
+                    TOFCommandCode::PROCESS_QDC_CALIBRATION
+                });
+                macroLoopRunning_ = false;
+            });
+            return true;
+        });
+    };
+    
+    //  MACRO_AUTO_RUN_SEQUENCE
+    table_[TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, [&]() {
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+                return false;
+            }
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
+            }
+
+            macroLoopRunning_ = true; 
+            macroLoopThread_ = std::thread([this]() {
+                this->executeMacroSequence("AutoRun", "auto_run", {
+                    TOFCommandCode::RESET_DAQ,
+                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                    TOFCommandCode::ACQUIRE_SIPM_DATA,
+                    TOFCommandCode::CONVERT_RAW_TO_RAW,
+                    TOFCommandCode::CONVERT_STG1_TO_STG2,
+                    TOFCommandCode::PROCESS_QA_COIN,
+                    TOFCommandCode::PROCESS_QA_IRIDIUM
+                });
+                macroLoopRunning_ = false;
+            });
+            return true;
+        });
+    };
+    
+    //  MACRO_PRE_BIAS_PREP 
+    table_[TOFCommandCode::MACRO_PRE_BIAS_PREP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_PRE_BIAS_PREP, [&]() {
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+                return false;
+            }
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
+            }
+
+            macroLoopRunning_ = true; 
+            macroLoopThread_ = std::thread([this]() {
+                this->executeMacroSequence("PreBiasPrep", "pre_bias_prep", {
+                    TOFCommandCode::RESET_DAQ,
+                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE
+                });
+                macroLoopRunning_ = false;
+            });
             return true;
         });
     };
 
-    //  MACRO_AUTO_RUN_SEQUENCE
-    table_[TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, [&]() {
-            Logger::instance().info("[CommandDispatch] Starting 14-step Auto Run Sequence...");
-
-            // ---------------------------------------------------
-            //Redirect all DAQ file outputs to this folder 
-            std::string timestamp = config.getCurrentTimestamp();
-            std::string vaultDir = config.getTOFDataDir() + "/vault/auto_run/run_" + timestamp; 
-            Logger::instance().info("[CommandDispatch] Initializing AutoRun Vault: {}", vaultDir);
-            try {
-                std::filesystem::create_directories(vaultDir);
-            } catch (const std::exception& e) {
-                Logger::instance().error("[CommandDispatch][Macro] Could not create vault: {}", e.what());
+    //  MACRO_POST_BIAS_PREP 
+    table_[TOFCommandCode::MACRO_POST_BIAS_PREP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_POST_BIAS_PREP, [&]() {
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
                 return false;
             }
-            config.setVaultPath(vaultDir);
-            // ---------------------------------------------------
- 
-            std::vector<TOFCommandCode> sequence = {
-                TOFCommandCode::STOP_DAQ,
-                TOFCommandCode::START_DAQ,
-                //TOFCommandCode::MAKE_BIAS_CALIB_TABLE,
-                //TOFCommandCode::MAKE_SIMPLE_BIAS_SET_TABLE, 
-                //TOFCommandCode::MAKE_SIMPLE_CHANNEL_MAP, 
-                TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
-                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
-                TOFCommandCode::ACQUIRE_SIPM_DATA,
-                TOFCommandCode::CONVERT_RAW_TO_RAW,
-                TOFCommandCode::CONVERT_STG1_TO_STG2,
-                TOFCommandCode::PROCESS_QA_COIN,
-                TOFCommandCode::PROCESS_QA_IRIDIUM
-            };
-    
-            for (auto cmd : sequence) {
-                Logger::instance().info("[CommandDispatch][Macro] Executing step: 0x{:04X}", static_cast<uint16_t>(cmd));
-                
-                if (!this->dispatch(cmd, {})) {
-                    Logger::instance().error("[CommandDispatch][Macro] Step 0x{:04X} failed. Aborting macro.", static_cast<uint16_t>(cmd));
-                    return false;
-                }
-    
-                bool is_running = true;
-                while (is_running) {
-                    std::this_thread::sleep_for(std::chrono::seconds(2));
-                    std::lock_guard<std::mutex> lock(pidMutex_);
-                    is_running = false;
-                    for (auto const& [pid, code] : activeBackgroundPIDs_) {
-                        if (code == cmd) {
-                            is_running = true;
-                            break;
-                        }
-                    }
-                }
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
             }
-            config.clearVaultPath();
+
+            macroLoopRunning_ = true; 
+            macroLoopThread_ = std::thread([this]() {
+                this->executeMacroSequence("PostBiasPrep", "post_bias_prep", {
+                    TOFCommandCode::RESET_DAQ,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                    TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
+                    TOFCommandCode::PROCESS_TDC_CALIBRATION,
+                    TOFCommandCode::PROCESS_QDC_CALIBRATION
+                });
+                macroLoopRunning_ = false;
+            });
+            return true;
+        });
+    };
+
+    //  MACRO_CYCLIC_RUN_LOOP 
+    table_[TOFCommandCode::MACRO_CYCLIC_RUN_LOOP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_CYCLIC_RUN_LOOP, [&]() {
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Loop macro is already active!");
+                return false;
+            }
+    
+            uint32_t cycles = (argv.size() > 0) ? static_cast<uint32_t>(argv[0]) : 0;
+            if (argv.size() > 1) {
+                double customDuration = static_cast<double>(argv[1]);
+                sipmDataAcquisitionTime_.store(customDuration);
+            }
+            Logger::instance().info("[CommandDispatch] Executing Cyclic Run Loop. Target iteration limit set to: {}", 
+                                    (cycles == 0 ? "UNLIMITED (Infinity)" : std::to_string(cycles)));
+            Logger::instance().info("[CommandDispatch] Loop configured with SiPM duration: {} seconds", sipmDataAcquisitionTime_.load());
  
-            Logger::instance().info("[CommandDispatch] All Auto Run steps completed successfully.");
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
+            }
+    
+            macroLoopThread_ = std::thread([this, cycles]() {
+                this->executeMacroLoop("CyclicRunLoop", "cyclic_run_loop", {
+                    TOFCommandCode::RESET_DAQ,
+                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                    TOFCommandCode::ACQUIRE_SIPM_DATA,
+                    TOFCommandCode::CONVERT_RAW_TO_RAW,
+                    TOFCommandCode::CONVERT_STG1_TO_STG2,
+                    TOFCommandCode::PROCESS_QA_COIN,
+                    TOFCommandCode::PROCESS_QA_IRIDIUM
+                }, cycles);
+                macroLoopRunning_ = false;
+            });
+    
             return true;
         });
     };
@@ -716,6 +752,11 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 }
 
 GRAMS_TOF_CommandDispatch::~GRAMS_TOF_CommandDispatch() {
+    macroLoopRunning_ = false;
+    if (macroLoopThread_.joinable()) {
+        macroLoopThread_.join();
+    }
+
     monitorRunning_ = false; 
     if (monitorThread_.joinable()) {
         monitorThread_.join();
@@ -767,10 +808,11 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
     TOFCommandCode code,
     const std::string& scriptName, 
     const std::vector<std::string>& args,
+    std::function<void(bool)> postCompletionCallback,
     const std::string& interpreter) 
 {
     std::string scriptPath = pyint_.resolveScriptPath(scriptName);
-    
+
     pid_t pid = fork();
     if (pid == 0) {
         // --- CHILD PROCESS ---
@@ -779,13 +821,12 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
         std::vector<char*> c_args;
         c_args.push_back(const_cast<char*>(interpreter.c_str()));
         c_args.push_back(const_cast<char*>(scriptPath.c_str()));
-        
+
         for (const auto& arg : args) {
             c_args.push_back(const_cast<char*>(arg.c_str()));
         }
         c_args.push_back(nullptr); 
 
-        // execvp will look in PATH for "python3" or "root"
         execvp(c_args[0], c_args.data());
         _exit(1); 
     } 
@@ -793,12 +834,10 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
         // --- PARENT PROCESS ---
         {
             std::lock_guard<std::mutex> lock(pidMutex_);
-            activeBackgroundPIDs_[pid] = code;
+            // Register process AND its callback under lock immediately
+            activeBackgroundTasks_[pid] = BackgroundTask{code, postCompletionCallback};
         }
-        
-        // Ignore child signals to prevent zombies
-        //signal(SIGCHLD, SIG_IGN); 
-        
+
         Logger::instance().info("[CommandDispatch] Started {} task (PID: {})", interpreter, pid);
         return true;
     }
@@ -844,31 +883,142 @@ bool GRAMS_TOF_CommandDispatch::executeSimpleCommand(TOFCommandCode code, std::f
     return success;
 }
 
+bool GRAMS_TOF_CommandDispatch::executeMacroSequence(
+    const std::string& macroName, 
+    const std::string& vaultSubDir, 
+    const std::vector<TOFCommandCode>& sequence) 
+{
+    Logger::instance().info("[CommandDispatch][{}] Starting macro sequence...", macroName);
+    auto& config = GRAMS_TOF_Config::instance();
+
+    macroLoopRunning_ = true;
+
+    if (!vaultSubDir.empty()) {
+        std::string timestamp = config.getCurrentTimestamp();
+        std::string vaultDir = config.getTOFDataDir() + "/vault/" + vaultSubDir + "/run_" + timestamp; 
+        Logger::instance().info("[CommandDispatch][{}] Initializing Vault: {}", macroName, vaultDir);
+        try {
+            std::filesystem::create_directories(vaultDir);
+            config.setVaultPath(vaultDir);
+        } catch (const std::exception& e) {
+            Logger::instance().error("[CommandDispatch][{}] Could not create vault: {}", macroName, e.what());
+            macroLoopRunning_ = false;
+            return false;
+        }
+    }
+
+    for (auto cmd : sequence) {
+        if (!macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch][{}] Stop flag detected mid-sequence. Aborting.", macroName);
+            if (!vaultSubDir.empty()) config.clearVaultPath();
+            return false;
+        }
+
+        Logger::instance().info("[CommandDispatch][{}] Executing step: 0x{:04X}", macroName, static_cast<uint16_t>(cmd));
+        
+        if (!this->dispatch(cmd, {})) {
+            Logger::instance().error("[CommandDispatch][{}] Step 0x{:04X} failed. Aborting macro.", macroName, static_cast<uint16_t>(cmd));
+            if (!vaultSubDir.empty()) config.clearVaultPath();
+            macroLoopRunning_ = false;
+            return false;
+        }
+
+        if (cmd == TOFCommandCode::RESET_DAQ) {
+          macroLoopRunning_ = true;
+        }
+
+        bool is_running = true;
+        while (is_running && macroLoopRunning_) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::lock_guard<std::mutex> lock(pidMutex_);
+            is_running = false;
+            for (auto const& [pid, task] : activeBackgroundTasks_) {
+                if (task.commandCode == cmd) {
+                    is_running = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!vaultSubDir.empty()) {
+        config.clearVaultPath();
+    }
+
+    //macroLoopRunning_ = false;
+
+    Logger::instance().info("[CommandDispatch][{}] Macro sequence completed successfully.", macroName);
+    return true;
+}
+
+bool GRAMS_TOF_CommandDispatch::executeMacroLoop(
+    const std::string& macroName, 
+    const std::string& vaultSubDir, 
+    const std::vector<TOFCommandCode>& sequence,
+    uint32_t numCycles) 
+{
+    Logger::instance().info("[CommandDispatch][{}] Continuous Loop Initiated. Target cycles: {}", 
+                            macroName, (numCycles == 0 ? "Infinity" : std::to_string(numCycles)));
+    
+    macroLoopRunning_ = true;
+    uint32_t currentCycle = 0;
+
+    while (macroLoopRunning_) {
+        currentCycle++;
+        Logger::instance().info("[CommandDispatch][{}] --- Starting Cycle #{} ---", macroName, currentCycle);
+
+        std::string cycleVaultPath = vaultSubDir.empty() ? "" : vaultSubDir + "/cycle_" + std::to_string(currentCycle);
+
+        if (!this->executeMacroSequence(macroName + "_Cycle", cycleVaultPath, sequence)) {
+            Logger::instance().error("[CommandDispatch][{}] Cycle #{} failed. Breaking loop engine.", macroName, currentCycle);
+            macroLoopRunning_ = false;
+            break;
+        }
+
+        if (numCycles > 0 && currentCycle >= numCycles) {
+            Logger::instance().info("[CommandDispatch][{}] Target cycle count ({}) reached.", macroName, numCycles);
+            macroLoopRunning_ = false;
+            break;
+        }
+
+        if (macroLoopRunning_) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+
+    Logger::instance().warn("[CommandDispatch][{}] Continuous Loop Stopped.", macroName);
+    return true;
+}
+
 void GRAMS_TOF_CommandDispatch::runMonitorThread() {
     while (monitorRunning_) {
         {
             std::lock_guard<std::mutex> lock(pidMutex_);
-            for (auto it = activeBackgroundPIDs_.begin(); it != activeBackgroundPIDs_.end(); ) {
+            for (auto it = activeBackgroundTasks_.begin(); it != activeBackgroundTasks_.end(); ) {
                 int status;
                 pid_t pid = it->first;
-                TOFCommandCode commandCode = it->second;
+                const BackgroundTask& task = it->second;
 
                 pid_t result = waitpid(pid, &status, WNOHANG);
 
                 if (result > 0) {
                     bool success = WIFEXITED(status) && (WEXITSTATUS(status) == 0);
-                    Logger::instance().info("[CommandDispatch] CALLBACK of background process {} for command 0x{:04X} finished with status {}", 
-                                             pid, static_cast<int>(commandCode), WEXITSTATUS(status));
-                    sendStatusCallback(commandCode, success ? 0 : 1);
-                    it = activeBackgroundPIDs_.erase(it);
+                    Logger::instance().info("[CommandDispatch] Process {} for command 0x{:04X} finished with status {}", 
+                                             pid, static_cast<int>(task.commandCode), WEXITSTATUS(status));
+                    if (task.postCompletionCallback) {
+                        task.postCompletionCallback(success);
+                    }
+                    sendStatusCallback(task.commandCode, success ? 0 : 1);
+                    
+                    it = activeBackgroundTasks_.erase(it);
                 } else if (result == -1) {
-                    it = activeBackgroundPIDs_.erase(it);
+                    it = activeBackgroundTasks_.erase(it);
                 } else {
                     it++; 
                 }
             }
         }
-        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
         for (int i = 0; i < 10 && monitorRunning_; ++i) 
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

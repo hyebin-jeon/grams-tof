@@ -49,20 +49,39 @@ private:
     std::mutex daqMutex_;
 
     // Managed Background Process Tracking
-    std::map<pid_t, TOFCommandCode> activeBackgroundPIDs_;
+    struct BackgroundTask {
+        TOFCommandCode commandCode;
+        std::function<void(bool success)> postCompletionCallback;
+    };
+    // Unified managed process registry map
+    std::unordered_map<pid_t, BackgroundTask> activeBackgroundTasks_;
     std::mutex pidMutex_;
 
     // Helper to launch and track background scripts
-    bool executeManagedBackground(TOFCommandCode code, const std::string& scriptName, const std::vector<std::string>& args, const std::string& interpreter = "python3");
+    bool executeManagedBackground(TOFCommandCode code, const std::string& scriptName, const std::vector<std::string>& args, std::function<void(bool)> postCompletionCallback = nullptr, const std::string& interpreter = "python3");
 
     // Monitor Thread to watch background PIDs
     std::thread monitorThread_;
     std::atomic<bool> monitorRunning_{false};
     void runMonitorThread();
 
+    // Loop Thread
+    std::atomic<bool> macroLoopRunning_{false};
+    std::thread macroLoopThread_;
+
+    // Run duration (sec)
+    std::atomic<double> sipmDataAcquisitionTime_{300.0}; 
+
     // Send Callback
     void sendStatusCallback(TOFCommandCode code, uint32_t status);
     bool executeSimpleCommand(TOFCommandCode code, std::function<bool()> func);
+    bool executeMacroSequence(const std::string& macroName, 
+                              const std::string& vaultSubDir, 
+                              const std::vector<TOFCommandCode>& sequence);
+    bool executeMacroLoop(const std::string& macroName, 
+                          const std::string& vaultSubDir, 
+                          const std::vector<TOFCommandCode>& sequence,
+                          uint32_t numCycles = 0);
 
     // Thread function to run DAQ
     void runDAQThread();

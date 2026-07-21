@@ -120,6 +120,9 @@ enum class CommunicationCodes : uint16_t {
 
   TOF_Macro_Thermal_Calib              = construct_code(0x500, COM_SUBSYSTEM_TOF_MSK),
   TOF_Macro_Auto_Run_Sequence          = construct_code(0x501, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Pre_Bias_Prep              = construct_code(0x502, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Post_Bias_Prep             = construct_code(0x503, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Cyclic_Run_Loop            = construct_code(0x504, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_ACK                              = construct_code(0xFFF, COM_SUBSYSTEM_TOF_MSK),
   TOF_Callback                         = construct_code(0xFFE, COM_SUBSYSTEM_TOF_MSK),
