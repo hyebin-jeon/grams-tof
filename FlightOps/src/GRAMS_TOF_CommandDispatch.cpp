@@ -625,9 +625,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
     
-    //  MACRO_PRE_BIAS_PREP 
-    table_[TOFCommandCode::MACRO_PRE_BIAS_PREP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_PRE_BIAS_PREP, [&]() {
+    //  MACRO_STAGE0_PREBREAKDOWN_BN 
+    table_[TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN, [&]() {
             if (macroLoopRunning_) {
                 Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
                 return false;
@@ -638,7 +638,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 
             macroLoopRunning_ = true; 
             macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("PreBiasPrep", "pre_bias_prep", {
+                this->executeMacroSequence("Stage0_Prebreakdown_BN", "stage0_prebreakdown_bn", {
                     TOFCommandCode::RESET_DAQ,
                     TOFCommandCode::READ_TEMPERATURE_SENSORS,
                     TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
@@ -651,9 +651,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
-    //  MACRO_POST_BIAS_PREP 
-    table_[TOFCommandCode::MACRO_POST_BIAS_PREP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_POST_BIAS_PREP, [&]() {
+    //  MACRO_STAGE1_UNBIASED_TDC 
+    table_[TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC, [&]() {
             if (macroLoopRunning_) {
                 Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
                 return false;
@@ -664,12 +664,35 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 
             macroLoopRunning_ = true; 
             macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("PostBiasPrep", "post_bias_prep", {
+                this->executeMacroSequence("Stage1_Unbiased_TDC", "stage1_unbiased_tdc", {
+                    TOFCommandCode::RESET_DAQ,
+                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                    TOFCommandCode::PROCESS_TDC_CALIBRATION
+                });
+                macroLoopRunning_ = false;
+            });
+            return true;
+        });
+    };
+
+    //  MACRO_STAGE2_PREBREAKDOWN_QDC
+    table_[TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC, [&]() {
+            if (macroLoopRunning_) {
+                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+                return false;
+            }
+            if (macroLoopThread_.joinable()) {
+                macroLoopThread_.join();
+            }
+
+            macroLoopRunning_ = true; 
+            macroLoopThread_ = std::thread([this]() {
+                this->executeMacroSequence("Stage2_Prebreakdown_QDC", "stage2_prebreakdown_qdc", {
                     TOFCommandCode::RESET_DAQ,
                     TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
-                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
                     TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
-                    TOFCommandCode::PROCESS_TDC_CALIBRATION,
                     TOFCommandCode::PROCESS_QDC_CALIBRATION
                 });
                 macroLoopRunning_ = false;
@@ -678,9 +701,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
-    //  MACRO_CYCLIC_RUN_LOOP 
-    table_[TOFCommandCode::MACRO_CYCLIC_RUN_LOOP] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_CYCLIC_RUN_LOOP, [&]() {
+    //  MACRO_STAGE3_OPERATIONAL_RUN 
+    table_[TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN, [&]() {
             if (macroLoopRunning_) {
                 Logger::instance().warn("[CommandDispatch] Loop macro is already active!");
                 return false;
@@ -700,7 +723,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             }
     
             macroLoopThread_ = std::thread([this, cycles]() {
-                this->executeMacroLoop("CyclicRunLoop", "cyclic_run_loop", {
+                this->executeMacroLoop("Stage4_Operational_Run", "stage4_operational_run", {
                     TOFCommandCode::RESET_DAQ,
                     TOFCommandCode::READ_TEMPERATURE_SENSORS,
                     TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,

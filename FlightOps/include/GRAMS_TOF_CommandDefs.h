@@ -39,9 +39,11 @@ enum class TOFCommandCode : uint16_t {
 
     MACRO_THERMAL_CALIB              = 0x5500,
     MACRO_AUTO_RUN_SEQUENCE          = 0x5501,
-    MACRO_PRE_BIAS_PREP              = 0x5502,
-    MACRO_POST_BIAS_PREP             = 0x5503,
-    MACRO_CYCLIC_RUN_LOOP            = 0x5504,
+
+    MACRO_STAGE0_PREBREAKDOWN_BN     = 0x5600,
+    MACRO_STAGE1_UNBIASED_TDC        = 0x5601,
+    MACRO_STAGE2_PREBREAKDOWN_QDC    = 0x5602, 
+    MACRO_STAGE3_OPERATIONAL_RUN     = 0x5603,
 
     ACK                              = 0x5FFF,
     CALLBACK                         = 0x5FFE,
@@ -93,9 +95,11 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
  
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return os << "MACRO_THERMAL_CALIB";
         case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return os << "MACRO_AUTO_RUN_SEQUENCE";
-        case TOFCommandCode::MACRO_PRE_BIAS_PREP:              return os << "MACRO_PRE_BIAS_PREP";
-        case TOFCommandCode::MACRO_POST_BIAS_PREP:             return os << "MACRO_POST_BIAS_PREP";
-        case TOFCommandCode::MACRO_CYCLIC_RUN_LOOP:            return os << "MACRO_CYCLIC_RUN_LOOP";
+
+        case TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN:     return os << "MACRO_STAGE0_PREBREAKDOWN_BN";
+        case TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC:        return os << "MACRO_STAGE1_UNBIASED_TDC";
+        case TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC:    return os << "MACRO_STAGE2_PREBREAKDOWN_QDC";
+        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN:     return os << "MACRO_STAGE3_OPERATIONAL_RUN";
 
         case TOFCommandCode::ACK:                              return os << "ACK";
         case TOFCommandCode::CALLBACK:                         return os << "CALLBACK";
@@ -149,9 +153,11 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
 
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return CommunicationCodes::TOF_Macro_Thermal_Calib;
         case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return CommunicationCodes::TOF_Macro_Auto_Run_Sequence;
-        case TOFCommandCode::MACRO_PRE_BIAS_PREP:              return CommunicationCodes::TOF_Macro_Pre_Bias_Prep;
-        case TOFCommandCode::MACRO_POST_BIAS_PREP:             return CommunicationCodes::TOF_Macro_Post_Bias_Prep;
-        case TOFCommandCode::MACRO_CYCLIC_RUN_LOOP:            return CommunicationCodes::TOF_Macro_Cyclic_Run_Loop;
+
+        case TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN:     return CommunicationCodes::TOF_Macro_Stage0_Prebreakdown_BN;
+        case TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC:        return CommunicationCodes::TOF_Macro_Stage1_Unbiased_TDC;
+        case TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC:    return CommunicationCodes::TOF_Macro_Stage2_Prebreakdown_QDC;
+        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN:     return CommunicationCodes::TOF_Macro_Stage3_Operational_Run;
 
         case TOFCommandCode::ACK:                              return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                         return CommunicationCodes::TOF_Callback;
@@ -201,9 +207,11 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
 
         case CommunicationCodes::TOF_Macro_Thermal_Calib:              return TOFCommandCode::MACRO_THERMAL_CALIB;
         case CommunicationCodes::TOF_Macro_Auto_Run_Sequence:          return TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE;
-        case CommunicationCodes::TOF_Macro_Pre_Bias_Prep:              return TOFCommandCode::MACRO_PRE_BIAS_PREP;
-        case CommunicationCodes::TOF_Macro_Post_Bias_Prep:             return TOFCommandCode::MACRO_POST_BIAS_PREP;
-        case CommunicationCodes::TOF_Macro_Cyclic_Run_Loop:            return TOFCommandCode::MACRO_CYCLIC_RUN_LOOP;
+
+        case CommunicationCodes::TOF_Macro_Stage0_Prebreakdown_BN:     return TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN;
+        case CommunicationCodes::TOF_Macro_Stage1_Unbiased_TDC:        return TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC;
+        case CommunicationCodes::TOF_Macro_Stage2_Prebreakdown_QDC:    return TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC; 
+        case CommunicationCodes::TOF_Macro_Stage3_Operational_Run:     return TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN; 
 
         case CommunicationCodes::TOF_ACK:                              return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                         return TOFCommandCode::CALLBACK;
