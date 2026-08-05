@@ -56,6 +56,8 @@ else()
 
     add_executable(grams_tof_client_daq tools/grams_tof_client_daq.cpp)
     target_link_libraries(grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11)
+    #target_link_libraries(grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11 ${CMAKE_DL_LIBS})
+    #target_link_options(grams_tof_client_daq PRIVATE "-rdynamic")    
 
     add_executable(test_grams_tof_client_daq tools/test_grams_tof_client_daq.cpp)
     #target_link_libraries(test_grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11 ncursesw)
@@ -66,6 +68,9 @@ else()
 
     add_executable(test_grams_tof_root tools/test_grams_tof_root.cpp)
     target_link_libraries(test_grams_tof_root PRIVATE GramsTofFlightOpsLib)
+
+    add_executable(tof_cmd_executor tools/tof_cmd_executor.cpp)
+    target_link_libraries(tof_cmd_executor PRIVATE GramsTofFlightOpsLib)
 
     # ----------------- Install Targets -----------------
     install(TARGETS GramsTofFlightOpsLib
@@ -93,6 +98,9 @@ else()
     install(TARGETS test_grams_tof_root
         RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
     )
+    install(TARGETS tof_cmd_executor
+        RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    )
 
     # ----------------- Install Configs / Scripts -----------------
     install(DIRECTORY external/petsys/  DESTINATION ${CMAKE_INSTALL_PREFIX}/petsys)
@@ -100,6 +108,9 @@ else()
     install(DIRECTORY external/config/  DESTINATION ${CMAKE_INSTALL_PREFIX}/config)
     install(DIRECTORY sh/               DESTINATION ${CMAKE_INSTALL_PREFIX}/sh)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/FlightOps)
+
+    add_library(GramsTofLoggerInclude INTERFACE)
+    target_include_directories(GramsTofLoggerInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include) 
 
     # ----------------- External Libraries -----------------
     add_subdirectory(external/base)

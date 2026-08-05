@@ -1,4 +1,5 @@
 #include "GRAMS_TOF_MonitorCodec.h"
+#include "GRAMS_TOF_Logger.h"
 #include <cstring>
 
 GRAMS_TOF_CommandCodec::Packet GRAMS_TOF_MonitorCodec::encode(const MonitorData& data) {
@@ -36,8 +37,10 @@ GRAMS_TOF_CommandCodec::Packet GRAMS_TOF_MonitorCodec::encode(const MonitorData&
 
 bool GRAMS_TOF_MonitorCodec::decode(const GRAMS_TOF_CommandCodec::Packet& packet, MonitorData& outData) {
     // Minimum 12 words for the header
-    if (packet.argv.size() < 12) return false;
-
+    if (packet.argv.size() < 12) { 
+        Logger::instance().error("[MonitorCodec] Truncated monitoring stream packet received. Size {} is less than header layout minimum (12).", packet.argv.size());
+        return false;
+    }
     outData.run_number = packet.argv[0];
     std::memcpy(outData.hname, &packet.argv[1], 16);
     

@@ -10,42 +10,27 @@ import traceback
 import os
 import sys
 
-def load_bn_baselines(asicsConfig, baseline_file, config_file=None):
+def load_bn_baselines(asicsConfig, baseline_file):
     """
     Reproduces BN results from the dumped .tsv file.
     Injects baseline_t and baseline_e into the current ASIC configuration.
     """
-    target_file = baseline_file
-
-    if not os.path.exists(target_file):
-        print(f"Target baseline file {target_file} not found in local vault.")
+    if not os.path.exists(baseline_file):
+        print(f"Target baseline file {baseline_file} not found locally.")
         
-        candidates = []
+        # Fallback to the stable config folder location using the standard GLIB environment layout
+        glib_dir = os.environ.get("GLIB", "/home/ksakai/work/grams")
+        fallback_link = os.path.join(glib_dir, "config", "disc_calibration_baseline.tsv")
         
-        # 1. Check $GLIB/config (Installed config folder)
-        glib_dir = os.environ.get("GLIB", "")
-        if glib_dir:
-            candidates.append(os.path.join(glib_dir, "config", "disc_calibration_baseline.tsv"))
-
-        # 2. Check path relative to config_file
-        if config_file:
-            config_dir = os.path.dirname(os.path.abspath(config_file))
-            candidates.append(os.path.join(config_dir, "disc_calibration_baseline.tsv"))
-
-        found = False
-        for candidate in candidates:
-            if os.path.exists(candidate):
-                print(f"Redirecting baseline tracking source to stable config link: {candidate}")
-                target_file = candidate
-                found = True
-                break
-
-        if not found:
-            print(f"CRITICAL ERROR: Could not locate 'disc_calibration_baseline.tsv' in: {candidates}")
+        if os.path.exists(fallback_link):
+            print(f"Redirecting baseline tracking source to stable config link: {fallback_link}")
+            baseline_file = fallback_link
+        else:
+            print(f"CRITICAL ERROR: No baseline file found at fallback location: {fallback_link}")
             return False
-
-    print(f"Loading previous BN results from {target_file}")
-    with open(target_file, "r") as f:
+        
+    print(f"Loading previous BN results from {baseline_file}")
+    with open(baseline_file, "r") as f:
         for line in f:
             parts = line.split()
             if len(parts) < 6: continue
@@ -97,7 +82,7 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
     # Load existing baselines if running Dark mode separately ---
     baseline_filename = out_file_prefix + "_baseline.tsv"
     if mode == "dark":
-        if not load_bn_baselines(asicsConfig, baseline_filename, config_file=config_file):
+        if not load_bn_baselines(asicsConfig, baseline_filename):
             return False
 
     COUNT_MAX = 1.0 * (2**22)
