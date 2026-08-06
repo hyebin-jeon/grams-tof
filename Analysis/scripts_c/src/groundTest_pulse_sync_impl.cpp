@@ -116,12 +116,15 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	
 		if( i==0 ) continue;
 		auto tdiff = vTimeA.at(i) - vTimeA.at(i-1);
+		auto tdiff_ms = tdiff*1E3;
 
-		timeA.GetTime( hour, min, second );
+
+		timeA.GetTime( kTRUE, 0, &hour, &min, &second );
 		auto nano = timeA.GetNanoSec();
 		auto mili = nano/1E6;
 
-		if( tdiff < 0.5 ) std::cout << "tdiff: " << tdiff << Form(", time1: %02u:%02u:%02u.%03u %09u",  hour, min, second, mili, nano) << endl; 
+		//if( tdiff < 0.5 ) 
+			std::cout << Form("[No.%04d]", i) << " tdiff (ms): " << Form("%3.0f",tdiff_ms) << Form(", time1: %02u:%02u:%02u.%03.0f %09u",  hour, min, second, mili, nano) << endl; 
 
 	}
 	for( int i=0; i<vTimeB.size(); i++ )
