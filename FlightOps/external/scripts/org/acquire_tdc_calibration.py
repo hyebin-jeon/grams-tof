@@ -10,24 +10,6 @@ import os
 import os.path
 import sys
 import traceback
-from contextlib import contextmanager
-
-@contextmanager
-def suppress_stdout_stderr():
-    """Redirects OS-level stdout and stderr to os.devnull to silence underlying C++ prints."""
-    devnull = os.open(os.devnull, os.O_WRONLY)
-    old_stdout = os.dup(1)
-    old_stderr = os.dup(2)
-    try:
-        os.dup2(devnull, 1)
-        os.dup2(devnull, 2)
-        yield
-    finally:
-        os.dup2(old_stdout, 1)
-        os.dup2(old_stderr, 2)
-        os.close(old_stdout)
-        os.close(old_stderr)
-        os.close(devnull)
 
 def acquire_tdc_calibration(config_path, file_name_prefix):
     print("acquire_tdc_calibration called with:", config_path, file_name_prefix)
@@ -60,12 +42,9 @@ def acquire_tdc_calibration(config_path, file_name_prefix):
     simultaneousChannels = 1
     channelStep = int(math.ceil(64.0 / simultaneousChannels))
 
-    print("Scanning phase bins for TDC calibration...")
     for firstChannel in range(0, channelStep):
         activeChannels = [channel for channel in range(firstChannel, 64, channelStep)]
         activeChannels_string = ", ".join(str(c) for c in activeChannels)
-        sys.stdout.write(f"  Channel(s) [{activeChannels_string}]: ")
-        sys.stdout.flush()
 
         cfg = deepcopy(asicsConfig)
         for ac in list(cfg.values()):
@@ -73,17 +52,14 @@ def acquire_tdc_calibration(config_path, file_name_prefix):
                 ac.channelConfig[channel].setValue("trigger_mode_1", 0b01)
         daqd_conn.setAsicsConfig(cfg)
 
-        binSize = (phaseMax - phaseMin) / nBins
         for i in range(nBins):
+            t_start = time.time()
+            binSize = (phaseMax - phaseMin) / nBins
             finePhase = phaseMin + (i + 0.5) * binSize
             daqd_conn.set_test_pulse_febds(100, 1024, finePhase, False)
-            with suppress_stdout_stderr():
-                daqd_conn.acquire(0.02, finePhase, 0)
-
-            if i % 10 == 0:
-                sys.stdout.write(".")
-                sys.stdout.flush()
-        sys.stdout.write("\n")
+            daqd_conn.acquire(0.02, finePhase, 0)
+            t_finish = time.time()
+            print(f"Channel(s): {activeChannels_string} Phase: {finePhase:.3f} clk in {t_finish - t_start:.2f} seconds")
 
     try:
         systemConfig.loadToHardware(daqd_conn, bias_enable=config.APPLY_BIAS_OFF)
@@ -114,3 +90,4 @@ def main():
 
 if __name__ == '__main__' and not hasattr(sys, '_called_from_c'):
     main()
+

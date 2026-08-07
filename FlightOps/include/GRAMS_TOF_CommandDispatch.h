@@ -52,13 +52,20 @@ private:
     struct BackgroundTask {
         TOFCommandCode commandCode;
         std::function<void(bool success)> postCompletionCallback;
+        bool sendCallback{true};
     };
     // Unified managed process registry map
     std::unordered_map<pid_t, BackgroundTask> activeBackgroundTasks_;
     std::mutex pidMutex_;
 
     // Helper to launch and track background scripts
-    bool executeManagedBackground(TOFCommandCode code, const std::string& scriptName, const std::vector<std::string>& args, std::function<void(bool)> postCompletionCallback = nullptr, const std::string& interpreter = "python3");
+    bool executeManagedBackground(
+      TOFCommandCode code, 
+      const std::string& scriptName, 
+      const std::vector<std::string>& args, 
+      std::function<void(bool)> postCompletionCallback = nullptr, 
+      bool sendCallback = true,
+      const std::string& interpreter = "python3");
 
     // Monitor Thread to watch background PIDs
     std::thread monitorThread_;
@@ -68,6 +75,13 @@ private:
     // Loop Thread
     std::atomic<bool> macroLoopRunning_{false};
     std::thread macroLoopThread_;
+
+    // ASIC Temperature Recording Thread
+    std::thread tempRecordThread_;
+    std::atomic<bool> tempRecordRunning_{false};
+
+    void startTempRecord(double intervalSec);
+    void stopTempRecord();
 
     // Run duration (sec)
     std::atomic<double> sipmDataAcquisitionTime_{300.0}; 

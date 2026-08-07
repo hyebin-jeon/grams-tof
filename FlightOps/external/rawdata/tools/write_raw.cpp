@@ -267,7 +267,9 @@ int main(int argc, char *argv[])
 			if(!acqStdMode){
 				calibrationPool.writeOut(dataFile);
 			}	
-			
+
+      // --- COMMENT OUT OR REMOVE THESE STUPID LOG LINES ---		
+      /*	
 			fprintf(stderr, "writeRaw:: Step had %lld frames with %lld events; %f events/frame avg, %lld event/frame max\n", 
 					stepAllFrames, stepEvents, 
 					float(stepEvents)/stepAllFrames,
@@ -277,7 +279,8 @@ int main(int argc, char *argv[])
 					stepLostFrames0, 100.0 * stepLostFrames0 / stepAllFrames
 					); 
 			fflush(stderr);
-			
+		  */
+	
 			int r = fflush(dataFile);
 			if(r != 0) { fprintf(stderr, "ERROR writing to %s: %d %s\n", fNameRaw, errno, strerror(errno)); exit(1); }
 

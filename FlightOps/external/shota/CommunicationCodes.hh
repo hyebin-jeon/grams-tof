@@ -107,6 +107,9 @@ enum class CommunicationCodes : uint16_t {
   TOF_Acquire_Threshold_Calibration_D  = construct_code(0x10B, COM_SUBSYSTEM_TOF_MSK),
   TOF_Set_FEM_Power_Off                = construct_code(0x10C, COM_SUBSYSTEM_TOF_MSK),
   TOF_Set_FEM_Power_On                 = construct_code(0x10D, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Start_Asic_Temp_Record           = construct_code(0x10E, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Stop_Asic_Temp_Record            = construct_code(0x10F, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Read_Temperature_Sensors_Single  = construct_code(0x110, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_Process_Threshold_Calibration    = construct_code(0x200, COM_SUBSYSTEM_TOF_MSK),
   TOF_Process_TDC_Calibration          = construct_code(0x201, COM_SUBSYSTEM_TOF_MSK),
@@ -120,9 +123,13 @@ enum class CommunicationCodes : uint16_t {
 
   TOF_Macro_Thermal_Calib              = construct_code(0x500, COM_SUBSYSTEM_TOF_MSK),
   TOF_Macro_Auto_Run_Sequence          = construct_code(0x501, COM_SUBSYSTEM_TOF_MSK),
-  TOF_Macro_Pre_Bias_Prep              = construct_code(0x502, COM_SUBSYSTEM_TOF_MSK),
-  TOF_Macro_Post_Bias_Prep             = construct_code(0x503, COM_SUBSYSTEM_TOF_MSK),
-  TOF_Macro_Cyclic_Run_Loop            = construct_code(0x504, COM_SUBSYSTEM_TOF_MSK),
+
+  TOF_Macro_Stage0_Prebreakdown_BN     = construct_code(0x600, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Stage1_Unbiased_TDC        = construct_code(0x601, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Stage2_Prebreakdown_QDC    = construct_code(0x602, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Macro_Stage3_Operational_D       = construct_code(0x603, COM_SUBSYSTEM_TOF_MSK),
+
+  TOF_Macro_Auto_Run_Cycle             = construct_code(0x700, COM_SUBSYSTEM_TOF_MSK),
 
   TOF_ACK                              = construct_code(0xFFF, COM_SUBSYSTEM_TOF_MSK),
   TOF_Callback                         = construct_code(0xFFE, COM_SUBSYSTEM_TOF_MSK),
