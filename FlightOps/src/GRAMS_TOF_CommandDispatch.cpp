@@ -34,6 +34,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
    
             daqRunning_ = true;
             daqThread_ = std::thread(&GRAMS_TOF_CommandDispatch::runDAQThread, this);
+
             return true; 
         });
     };
@@ -42,7 +43,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     table_[TOFCommandCode::STOP_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::STOP_DAQ, [&]() {
             Logger::instance().warn("[CommandDispatch][STOP] Initiating Master Stop Sequence...");
-   
+
             // 0. Cancel macro loops
             macroLoopRunning_ = false;
  
@@ -102,6 +103,39 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::RESET_DAQ, [&]() {
             Logger::instance().info("[CommandDispatch][RESET] Initiating Reset (STOP -> START pipeline)...");
     
+            // 1. Save whether a macro loop was active before STOP_DAQ runs
+            bool wasMacroRunning = (macroLoopThread_.joinable());
+    
+            // 2. Invoke default STOP_DAQ (which sets macroLoopRunning_ = false as default)
+            if (table_.count(TOFCommandCode::STOP_DAQ)) {
+                Logger::instance().info("[CommandDispatch][RESET] Step 1: Executing STOP sequence...");
+                table_[TOFCommandCode::STOP_DAQ](argv); 
+            }
+    
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+            // 3. Invoke START_DAQ
+            if (table_.count(TOFCommandCode::START_DAQ)) {
+                Logger::instance().info("[CommandDispatch][RESET] Step 2: Executing START sequence...");
+                bool start_success = table_[TOFCommandCode::START_DAQ](argv);
+                if (!start_success) return false;
+            }
+    
+            // 4. Restore macroLoopRunning_ if RESET_DAQ was called within a running macro thread
+            if (wasMacroRunning) {
+                macroLoopRunning_ = true;
+            }
+    
+            return true;
+        });
+    };
+
+/*
+    // RESET_DAQ
+    table_[TOFCommandCode::RESET_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        return executeSimpleCommand(TOFCommandCode::RESET_DAQ, [&]() {
+            Logger::instance().info("[CommandDispatch][RESET] Initiating Reset (STOP -> START pipeline)...");
+    
             // 1. Invoke the core logic of STOP_DAQ inline 
             if (table_.count(TOFCommandCode::STOP_DAQ)) {
                 Logger::instance().info("[CommandDispatch][RESET] Step 1: Executing STOP sequence...");
@@ -125,12 +159,15 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return true;
         });
     };
+*/
 
     // RECONNECT_NETWORK
     table_[TOFCommandCode::RECONNECT_NETWORK] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        Logger::instance().info("[CommandDispatch] Manual network reconnection requested...");
-        listener_.onNetworkResetRequested(); 
-        return true;
+        return executeSimpleCommand(TOFCommandCode::RECONNECT_NETWORK, [&]() {
+            Logger::instance().info("[CommandDispatch] Manual network reconnection requested...");
+            listener_.onNetworkResetRequested(); 
+            return true;
+        });
     };
 
     // INIT_SYSTEM
@@ -197,7 +234,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             );
         });
     };
-
+  
     // READ_TEMPERATURE_SENSORS
     table_[TOFCommandCode::READ_TEMPERATURE_SENSORS] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
@@ -205,12 +242,12 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().info("[CommandDispatch] Executing read_temperature_sensors.py script...");
             std::vector<std::string> sArgs;
             sArgs.push_back("--time");
-            sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : 0.0));
+            sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : 600.0));
             sArgs.push_back("--interval");
             sArgs.push_back(std::to_string(argv.size() > 1 ? static_cast<double>(argv[1]) : 60.0));
             sArgs.push_back("-o");
             sArgs.push_back(config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors", timestampStr, "log"));
-            bool startup = (argv.size() > 2) ? (argv[2] != 0) : true;
+            bool startup = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (startup) sArgs.push_back("--startup");
             bool debug = (argv.size() > 3) ? (argv[3] != 0) : false;
             if (debug) sArgs.push_back("--debug");
@@ -218,6 +255,29 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS, "read_temperature_sensors.py", sArgs);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in READ_TEMPERATURE_SENSORS");
+            return false;
+        }
+    };
+
+    // READ_TEMPERATURE_SENSORS_SINGLE (Single-shot temperature dump)
+    table_[TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        try {
+            auto timestampStr = config.getCurrentTimestamp();
+            Logger::instance().info("[CommandDispatch] Executing single-shot temperature dump...");
+            
+            std::vector<std::string> sArgs;
+            sArgs.push_back("--record"); // Triggers startTempRecord() single-shot mode
+            sArgs.push_back("-o");
+            sArgs.push_back(config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors_single", timestampStr, "log"));
+            
+            bool startup = (argv.size() > 2) ? (argv[2] != 0) : false;
+            if (startup) sArgs.push_back("--startup");
+            bool debug = (argv.size() > 3) ? (argv[3] != 0) : false;
+            if (debug) sArgs.push_back("--debug");
+
+            return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE, "read_temperature_sensors.py", sArgs);
+        } catch (...) {
+            Logger::instance().error("[CommandDispatch] Exception in READ_TEMPERATURE_SENSORS_SINGLE");
             return false;
         }
     };
@@ -404,6 +464,30 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
+    // START_ASIC_TEMP_RECORD
+    table_[TOFCommandCode::START_ASIC_TEMP_RECORD] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        try {
+            // Read interval parameter, default to 10.0 seconds if not provided
+            double intervalSec = (argv.size() > 0) ? static_cast<double>(argv[0]) : 10.0;
+            startTempRecord(intervalSec);
+            return true;
+        } catch (...) {
+            Logger::instance().error("[CommandDispatch] Exception in START_ASIC_TEMP_RECORD");
+            return false;
+        }
+    };
+    
+    // STOP_ASIC_TEMP_RECORD
+    table_[TOFCommandCode::STOP_ASIC_TEMP_RECORD] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        try {
+            stopTempRecord();
+            return true;
+        } catch (...) {
+            Logger::instance().error("[CommandDispatch] Exception in STOP_ASIC_TEMP_RECORD");
+            return false;
+        }
+    };
+
     // PROCESS_THRESHOLD_CALIBRATION
     table_[TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION, [&]() {
@@ -564,180 +648,207 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
-    //  MACRO_THERMAL_CALIB
+    // MACRO_THERMAL_CALIB
     table_[TOFCommandCode::MACRO_THERMAL_CALIB] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_THERMAL_CALIB, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
-                return false;
-            }
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_THERMAL_CALIB, 1);
+            return false;
+        }
 
-            macroLoopRunning_ = true; 
-            macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("ThermalCalib", "thermal_calib", {
-                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
-                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
-                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
-                    TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
-                    TOFCommandCode::PROCESS_TDC_CALIBRATION,
-                    TOFCommandCode::PROCESS_QDC_CALIBRATION
-                });
-                macroLoopRunning_ = false;
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
+
+        macroLoopRunning_ = true;
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("ThermalCalib", "thermal_calib", {
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
+                TOFCommandCode::PROCESS_TDC_CALIBRATION,
+                TOFCommandCode::PROCESS_QDC_CALIBRATION
             });
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_THERMAL_CALIB, success ? 0 : 1);
         });
+
+        return true;
     };
-    
+
     //  MACRO_AUTO_RUN_SEQUENCE
     table_[TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
-                return false;
-            }
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, 1);
+            return false;
+        }
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
 
-            macroLoopRunning_ = true; 
-            macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("AutoRun", "auto_run", {
-                    TOFCommandCode::RESET_DAQ,
-                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
-                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
-                    TOFCommandCode::ACQUIRE_SIPM_DATA,
-                    TOFCommandCode::CONVERT_RAW_TO_RAW,
-                    TOFCommandCode::CONVERT_STG1_TO_STG2,
-                    TOFCommandCode::PROCESS_QA_COIN,
-                    TOFCommandCode::PROCESS_QA_IRIDIUM
-                });
-                macroLoopRunning_ = false;
+        macroLoopRunning_ = true; 
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("AutoRun", "auto_run", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::CONVERT_RAW_TO_RAW,
+                TOFCommandCode::CONVERT_STG1_TO_STG2,
+                TOFCommandCode::PROCESS_QA_COIN,
+                TOFCommandCode::PROCESS_QA_IRIDIUM
             });
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE, success ? 0 : 1);
         });
+        return true;
     };
     
     //  MACRO_STAGE0_PREBREAKDOWN_BN 
     table_[TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
-                return false;
-            }
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN, 1);
+            return false;
+        }
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
 
-            macroLoopRunning_ = true; 
-            macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("Stage0_Prebreakdown_BN", "stage0_prebreakdown_bn", {
-                    TOFCommandCode::RESET_DAQ,
-                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
-                    TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                    TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE
-                });
-                macroLoopRunning_ = false;
+        macroLoopRunning_ = true; 
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("Stage0_Prebreakdown_BN", "stage0_prebreakdown_bn", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
+                TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE
             });
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN, success ? 0 : 1);
         });
+        return true;
     };
 
     //  MACRO_STAGE1_UNBIASED_TDC 
     table_[TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
-                return false;
-            }
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC, 1);
+            return false;
+        }
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
 
-            macroLoopRunning_ = true; 
-            macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("Stage1_Unbiased_TDC", "stage1_unbiased_tdc", {
-                    TOFCommandCode::RESET_DAQ,
-                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                    TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
-                    TOFCommandCode::PROCESS_TDC_CALIBRATION
-                });
-                macroLoopRunning_ = false;
+        macroLoopRunning_ = true; 
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("Stage1_Unbiased_TDC", "stage1_unbiased_tdc", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
+                TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
+                TOFCommandCode::PROCESS_TDC_CALIBRATION
             });
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC, success ? 0 : 1);
         });
+        return true;
     };
 
     //  MACRO_STAGE2_PREBREAKDOWN_QDC
     table_[TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
-                return false;
-            }
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC, 1);
+            return false;
+        }
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
 
-            macroLoopRunning_ = true; 
-            macroLoopThread_ = std::thread([this]() {
-                this->executeMacroSequence("Stage2_Prebreakdown_QDC", "stage2_prebreakdown_qdc", {
-                    TOFCommandCode::RESET_DAQ,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
-                    TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
-                    TOFCommandCode::PROCESS_QDC_CALIBRATION
-                });
-                macroLoopRunning_ = false;
+        macroLoopRunning_ = true; 
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("Stage2_Prebreakdown_QDC", "stage2_prebreakdown_qdc", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
+                TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
+                TOFCommandCode::PROCESS_QDC_CALIBRATION
             });
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC, success ? 0 : 1);
         });
+        return true;
     };
 
-    //  MACRO_STAGE3_OPERATIONAL_RUN 
-    table_[TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN, [&]() {
-            if (macroLoopRunning_) {
-                Logger::instance().warn("[CommandDispatch] Loop macro is already active!");
-                return false;
-            }
-    
-            uint32_t cycles = (argv.size() > 0) ? static_cast<uint32_t>(argv[0]) : 0;
-            if (argv.size() > 1) {
-                double customDuration = static_cast<double>(argv[1]);
-                sipmDataAcquisitionTime_.store(customDuration);
-            }
-            Logger::instance().info("[CommandDispatch] Executing Cyclic Run Loop. Target iteration limit set to: {}", 
-                                    (cycles == 0 ? "UNLIMITED (Infinity)" : std::to_string(cycles)));
-            Logger::instance().info("[CommandDispatch] Loop configured with SiPM duration: {} seconds", sipmDataAcquisitionTime_.load());
- 
-            if (macroLoopThread_.joinable()) {
-                macroLoopThread_.join();
-            }
-    
-            macroLoopThread_ = std::thread([this, cycles]() {
-                this->executeMacroLoop("Stage4_Operational_Run", "stage4_operational_run", {
-                    TOFCommandCode::RESET_DAQ,
-                    TOFCommandCode::READ_TEMPERATURE_SENSORS,
-                    TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
-                    TOFCommandCode::ACQUIRE_SIPM_DATA,
-                    TOFCommandCode::CONVERT_RAW_TO_RAW,
-                    TOFCommandCode::CONVERT_STG1_TO_STG2,
-                    TOFCommandCode::PROCESS_QA_COIN,
-                    TOFCommandCode::PROCESS_QA_IRIDIUM
-                }, cycles);
-                macroLoopRunning_ = false;
+
+    //  MACRO_STAGE3_OPERATIONAL_D 
+    table_[TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Another macro loop is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D, 1);
+            return false;
+        }
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
+
+        macroLoopRunning_ = true; 
+        macroLoopThread_ = std::thread([this]() {
+            bool success = this->executeMacroSequence("Stage3_Operational_D", "stage3_operational_d", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D
             });
-    
-            return true;
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D, success ? 0 : 1);
         });
+        return true;
+    };
+
+    //  MACRO_AUTO_RUN_CYCLE 
+    table_[TOFCommandCode::MACRO_AUTO_RUN_CYCLE] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        if (macroLoopRunning_) {
+            Logger::instance().warn("[CommandDispatch] Loop macro is already active!");
+            sendStatusCallback(TOFCommandCode::MACRO_AUTO_RUN_CYCLE, 1);
+            return false;
+        }
+    
+        uint32_t cycles = (argv.size() > 0) ? static_cast<uint32_t>(argv[0]) : 0;
+        if (argv.size() > 1) {
+            double customDuration = static_cast<double>(argv[1]);
+            sipmDataAcquisitionTime_.store(customDuration);
+        }
+        Logger::instance().info("[CommandDispatch] Executing Cyclic Run Loop. Target iteration limit set to: {}", 
+                                (cycles == 0 ? "UNLIMITED (Infinity)" : std::to_string(cycles)));
+        Logger::instance().info("[CommandDispatch] Loop configured with SiPM duration: {} seconds", sipmDataAcquisitionTime_.load());
+ 
+        if (macroLoopThread_.joinable()) {
+            macroLoopThread_.join();
+        }
+    
+        macroLoopThread_ = std::thread([this, cycles]() {
+            bool success = this->executeMacroLoop("AutoRunCycle", "auto_run_cycle", {
+                TOFCommandCode::RESET_DAQ,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS,
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::CONVERT_RAW_TO_RAW,
+                TOFCommandCode::CONVERT_STG1_TO_STG2,
+                TOFCommandCode::PROCESS_QA_COIN,
+                TOFCommandCode::PROCESS_QA_IRIDIUM
+            }, cycles);
+            macroLoopRunning_ = false;
+            sendStatusCallback(TOFCommandCode::MACRO_AUTO_RUN_CYCLE, success ? 0 : 1);
+        });
+    
+        return true;
     };
 
     // HEART_BEAT
@@ -790,6 +901,8 @@ GRAMS_TOF_CommandDispatch::~GRAMS_TOF_CommandDispatch() {
         daqThread_.join();
     }
 
+    stopTempRecord();
+
     Logger::instance().error("[CommandDispatch] Exception in destructor");
 }
 
@@ -811,6 +924,17 @@ void GRAMS_TOF_CommandDispatch::runDAQThread() {
 }
 
 bool GRAMS_TOF_CommandDispatch::dispatch(TOFCommandCode code, const CommandArgs& argv) {
+
+    if (code == TOFCommandCode::HEART_BEAT) {
+        Logger::instance().detail("[CommandDispatch] HEART_BEAT tick");
+    } else {
+        std::ostringstream ss;
+        ss << code; 
+        Logger::instance().critical("[CommandDispatch] Received command {} (0x{:04X}) with {} args. Executing...", 
+                                     ss.str(), static_cast<uint16_t>(code), argv.size());
+    }
+
+
     auto it = table_.find(code);
     if (it != table_.end()) {
         try {
@@ -832,6 +956,7 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
     const std::string& scriptName, 
     const std::vector<std::string>& args,
     std::function<void(bool)> postCompletionCallback,
+    bool sendCallback,
     const std::string& interpreter) 
 {
     std::string scriptPath = pyint_.resolveScriptPath(scriptName);
@@ -857,11 +982,10 @@ bool GRAMS_TOF_CommandDispatch::executeManagedBackground(
         // --- PARENT PROCESS ---
         {
             std::lock_guard<std::mutex> lock(pidMutex_);
-            // Register process AND its callback under lock immediately
-            activeBackgroundTasks_[pid] = BackgroundTask{code, postCompletionCallback};
+            activeBackgroundTasks_[pid] = BackgroundTask{code, postCompletionCallback, sendCallback}; 
         }
 
-        Logger::instance().info("[CommandDispatch] Started {} task (PID: {})", interpreter, pid);
+        Logger::instance().debug("[CommandDispatch] Started {} task (PID: {})", interpreter, pid);
         return true;
     }
     return false;
@@ -882,8 +1006,8 @@ void GRAMS_TOF_CommandDispatch::sendStatusCallback(TOFCommandCode code, uint32_t
     for (int i = 0; i < max_retries; ++i) {
         if (eventClient_.sendPacket(cb)) {
             if (i >= 0) {
-                Logger::instance().debug("[CommandDispatch] CALLBACK for 0x{:04X} sent successfully after {} retries.", 
-                                          static_cast<uint16_t>(code), i+1);
+                Logger::instance().critical("[CommandDispatch] CALLBACK for 0x{:04X} sent successfully after {} retries.", 
+                                            static_cast<uint16_t>(code), i+1);
             }
             return; // Success
         }
@@ -1026,13 +1150,14 @@ void GRAMS_TOF_CommandDispatch::runMonitorThread() {
 
                 if (result > 0) {
                     bool success = WIFEXITED(status) && (WEXITSTATUS(status) == 0);
-                    Logger::instance().info("[CommandDispatch] Process {} for command 0x{:04X} finished with status {}", 
+                    Logger::instance().debug("[CommandDispatch] Process {} for command 0x{:04X} finished with status {}", 
                                              pid, static_cast<int>(task.commandCode), WEXITSTATUS(status));
                     if (task.postCompletionCallback) {
                         task.postCompletionCallback(success);
                     }
-                    sendStatusCallback(task.commandCode, success ? 0 : 1);
-                    
+                    if (task.sendCallback) {
+                        sendStatusCallback(task.commandCode, success ? 0 : 1);
+                    } 
                     it = activeBackgroundTasks_.erase(it);
                 } else if (result == -1) {
                     it = activeBackgroundTasks_.erase(it);
@@ -1046,4 +1171,64 @@ void GRAMS_TOF_CommandDispatch::runMonitorThread() {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
+
+void GRAMS_TOF_CommandDispatch::startTempRecord(double intervalSec) {
+    if (tempRecordRunning_.load()) {
+        Logger::instance().warn("[CommandDispatch] ASIC temperature recording thread is already running.");
+        return;
+    }
+
+    tempRecordRunning_.store(true);
+
+    tempRecordThread_ = std::thread([this, intervalSec]() {
+        auto& config = GRAMS_TOF_Config::instance();
+        
+        // Single session timestamp: Created once when recording starts
+        auto timestampStr = config.getCurrentTimestamp();
+        std::string logPath = config.makeFilePathWithTimestamp(
+            config.getAsicTempDir(), "asic_temp", timestampStr, "log"
+        );
+
+        Logger::instance().debug("[CommandDispatch] Started ASIC temperature recording thread to single file: {}", logPath);
+
+        while (tempRecordRunning_.load()) {
+            std::vector<std::string> sArgs = {
+                "--time", "0.0",
+                "-o", logPath, "--quiet"
+            };
+
+            executeManagedBackground(
+                TOFCommandCode::READ_TEMPERATURE_SENSORS, 
+                "read_temperature_sensors.py", 
+                sArgs,
+                nullptr,
+                false
+            );
+
+            auto startSleep = std::chrono::steady_clock::now();
+            while (tempRecordRunning_.load()) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::steady_clock::now() - startSleep).count();
+                if (elapsed >= intervalSec) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+        }
+        Logger::instance().info("[CommandDispatch] ASIC temperature recording thread stopped.");
+    });
+}
+
+void GRAMS_TOF_CommandDispatch::stopTempRecord() {
+    if (!tempRecordRunning_.load()) {
+        Logger::instance().warn("[CommandDispatch] No active ASIC temperature recording thread to stop.");
+        return;
+    }
+
+    Logger::instance().info("[CommandDispatch] Stopping ASIC temperature recording thread...");
+    tempRecordRunning_.store(false);
+
+    if (tempRecordThread_.joinable()) {
+        tempRecordThread_.join();
+    }
+}
+
 

@@ -24,6 +24,9 @@ enum class TOFCommandCode : uint16_t {
     ACQUIRE_THRESHOLD_CALIBRATION_D  = 0x510B,
     SET_FEM_POWER_OFF                = 0x510C,
     SET_FEM_POWER_ON                 = 0x510D,
+    START_ASIC_TEMP_RECORD           = 0x510E,
+    STOP_ASIC_TEMP_RECORD            = 0x510F,
+    READ_TEMPERATURE_SENSORS_SINGLE  = 0x5110,
 
     PROCESS_THRESHOLD_CALIBRATION    = 0x5200,
     PROCESS_TDC_CALIBRATION          = 0x5201,
@@ -43,7 +46,9 @@ enum class TOFCommandCode : uint16_t {
     MACRO_STAGE0_PREBREAKDOWN_BN     = 0x5600,
     MACRO_STAGE1_UNBIASED_TDC        = 0x5601,
     MACRO_STAGE2_PREBREAKDOWN_QDC    = 0x5602, 
-    MACRO_STAGE3_OPERATIONAL_RUN     = 0x5603,
+    MACRO_STAGE3_OPERATIONAL_D       = 0x5603,
+
+    MACRO_AUTO_RUN_CYCLE             = 0x5700,
 
     ACK                              = 0x5FFF,
     CALLBACK                         = 0x5FFE,
@@ -80,7 +85,10 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D:  return os << "ACQUIRE_THRESHOLD_CALIBRATION_D";
         case TOFCommandCode::SET_FEM_POWER_OFF:                return os << "SET_FEM_POWER_OFF";
         case TOFCommandCode::SET_FEM_POWER_ON:                 return os << "SET_FEM_POWER_ON";
-       
+        case TOFCommandCode::START_ASIC_TEMP_RECORD:           return os << "START_ASIC_TEMP_RECORD";
+        case TOFCommandCode::STOP_ASIC_TEMP_RECORD:            return os << "STOP_ASIC_TEMP_RECORD";
+        case TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE:  return os << "READ_TEMPERATURE_SENSORS_SINGLE";
+
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return os << "PROCESS_THRESHOLD_CALIBRATION";
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return os << "PROCESS_TDC_CALIBRATION";
         case TOFCommandCode::PROCESS_QDC_CALIBRATION:          return os << "PROCESS_QDC_CALIBRATION";
@@ -99,7 +107,9 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN:     return os << "MACRO_STAGE0_PREBREAKDOWN_BN";
         case TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC:        return os << "MACRO_STAGE1_UNBIASED_TDC";
         case TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC:    return os << "MACRO_STAGE2_PREBREAKDOWN_QDC";
-        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN:     return os << "MACRO_STAGE3_OPERATIONAL_RUN";
+        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D:       return os << "MACRO_STAGE3_OPERATIONAL_D";
+
+        case TOFCommandCode::MACRO_AUTO_RUN_CYCLE:             return os << "MACRO_AUTO_RUN_CYCLE";
 
         case TOFCommandCode::ACK:                              return os << "ACK";
         case TOFCommandCode::CALLBACK:                         return os << "CALLBACK";
@@ -137,6 +147,9 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D:  return CommunicationCodes::TOF_Acquire_Threshold_Calibration_D;
         case TOFCommandCode::SET_FEM_POWER_OFF:                return CommunicationCodes::TOF_Set_FEM_Power_Off;
         case TOFCommandCode::SET_FEM_POWER_ON:                 return CommunicationCodes::TOF_Set_FEM_Power_On;
+        case TOFCommandCode::START_ASIC_TEMP_RECORD:           return CommunicationCodes::TOF_Start_Asic_Temp_Record;
+        case TOFCommandCode::STOP_ASIC_TEMP_RECORD:            return CommunicationCodes::TOF_Stop_Asic_Temp_Record;
+        case TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE:  return CommunicationCodes::TOF_Read_Temperature_Sensors_Single;
 
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return CommunicationCodes::TOF_Process_Threshold_Calibration;
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return CommunicationCodes::TOF_Process_TDC_Calibration;
@@ -157,7 +170,9 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN:     return CommunicationCodes::TOF_Macro_Stage0_Prebreakdown_BN;
         case TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC:        return CommunicationCodes::TOF_Macro_Stage1_Unbiased_TDC;
         case TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC:    return CommunicationCodes::TOF_Macro_Stage2_Prebreakdown_QDC;
-        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN:     return CommunicationCodes::TOF_Macro_Stage3_Operational_Run;
+        case TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D:       return CommunicationCodes::TOF_Macro_Stage3_Operational_D;
+
+        case TOFCommandCode::MACRO_AUTO_RUN_CYCLE:             return CommunicationCodes::TOF_Macro_Auto_Run_Cycle;
 
         case TOFCommandCode::ACK:                              return CommunicationCodes::TOF_ACK;
         case TOFCommandCode::CALLBACK:                         return CommunicationCodes::TOF_Callback;
@@ -191,6 +206,9 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Acquire_Threshold_Calibration_D:  return TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D;
         case CommunicationCodes::TOF_Set_FEM_Power_Off:                return TOFCommandCode::SET_FEM_POWER_OFF;
         case CommunicationCodes::TOF_Set_FEM_Power_On:                 return TOFCommandCode::SET_FEM_POWER_ON;
+        case CommunicationCodes::TOF_Start_Asic_Temp_Record:           return TOFCommandCode::START_ASIC_TEMP_RECORD;
+        case CommunicationCodes::TOF_Stop_Asic_Temp_Record:            return TOFCommandCode::STOP_ASIC_TEMP_RECORD;
+        case CommunicationCodes::TOF_Read_Temperature_Sensors_Single:  return TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE;
 
         case CommunicationCodes::TOF_Process_Threshold_Calibration:    return TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION;
         case CommunicationCodes::TOF_Process_TDC_Calibration:          return TOFCommandCode::PROCESS_TDC_CALIBRATION;
@@ -211,7 +229,9 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Macro_Stage0_Prebreakdown_BN:     return TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN;
         case CommunicationCodes::TOF_Macro_Stage1_Unbiased_TDC:        return TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC;
         case CommunicationCodes::TOF_Macro_Stage2_Prebreakdown_QDC:    return TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC; 
-        case CommunicationCodes::TOF_Macro_Stage3_Operational_Run:     return TOFCommandCode::MACRO_STAGE3_OPERATIONAL_RUN; 
+        case CommunicationCodes::TOF_Macro_Stage3_Operational_D:       return TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D; 
+
+        case CommunicationCodes::TOF_Macro_Auto_Run_Cycle:             return TOFCommandCode::MACRO_AUTO_RUN_CYCLE;
 
         case CommunicationCodes::TOF_ACK:                              return TOFCommandCode::ACK;
         case CommunicationCodes::TOF_Callback:                         return TOFCommandCode::CALLBACK;

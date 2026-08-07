@@ -42,6 +42,7 @@ public:
     std::string getQDCDir() const;           // $TOFDATA/qdc
     std::string getTDCDir() const;           // $TOFDATA/tdc
     std::string getCalibrationDir() const;   // $TOFDATA/calibration
+    std::string getAsicTempDir() const;      // $TOFDATA/asic_temp
 
 private:
     GRAMS_TOF_Config() = default;
@@ -71,4 +72,5 @@ inline std::string GRAMS_TOF_Config::getDiscDir()    const { return vaultPath_.e
 inline std::string GRAMS_TOF_Config::getQDCDir()     const { return vaultPath_.empty() ? tofdataDir_ + "/qdc"  : vaultPath_; }
 inline std::string GRAMS_TOF_Config::getTDCDir()     const { return vaultPath_.empty() ? tofdataDir_ + "/tdc"  : vaultPath_; }
 inline std::string GRAMS_TOF_Config::getCalibrationDir() const { return vaultPath_.empty() ? tofdataDir_ + "/calibration" : vaultPath_; }
+inline std::string GRAMS_TOF_Config::getAsicTempDir() const { return vaultPath_.empty() ? tofdataDir_ + "/asic_temp" : vaultPath_; }
 

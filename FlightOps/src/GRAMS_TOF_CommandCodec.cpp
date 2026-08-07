@@ -126,7 +126,6 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
     return true;
 }
 
-
 std::vector<uint8_t> GRAMS_TOF_CommandCodec::serialize(const Packet& pkt, std::optional<uint16_t> fixedCrc) {
     std::vector<uint8_t> buf;
 
