@@ -34,8 +34,8 @@ class TOF_ChannelConversion : public TObject
 		std::map<uint8_t, uint8_t> fMap_ConnIdToChannelId;
 		std::map<uint8_t, uint8_t> fMap_ChannelIdToConnId;
 
-		uint8_t fFebD_connID0; 
-		uint8_t fFebD_connID1; 
+		//uint8_t fFebD_connID0; 
+		//uint8_t fFebD_connID1; 
 
 	public:
 		void fillMapConnIdToChannelId();

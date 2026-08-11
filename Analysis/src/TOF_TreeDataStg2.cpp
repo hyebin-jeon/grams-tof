@@ -52,7 +52,7 @@ void TOF_TreeDataStg2::setBranchAddress()
 void TOF_TreeDataStg2::makeBranches()
 {
 	if(!fTTree ) {
-		std::cout << Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
+		std::cout << Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
 		fTTree = new TTree("data", "data");
 	}
 

@@ -1,3 +1,7 @@
+//#include <stdint.h>
+#include <cstdint>
+//#include <format>
+
 #pragma once
 
 #define TOF_GOOD 1
@@ -25,6 +29,21 @@ enum class TOF_Discriminator {
   fDiscT2 = 2,
   fDiscE  = 3,
 };
+		
+enum eSystem : uint16_t {
+//enum class eSystem {
+	fUTOF = 0,
+	fMTOF = 1,
+	fMPD  = 2,
+	fTrig = 3,
+	fPPS  = 4,
+};
+
+enum eCoordinate : uint16_t {
+//enum class eCoordinate {
+	fBiasSide = 0,
+	fDaqSide  = 1,
+};
 
 const double fTOF_TdcClkFreq = 200E6; // 200 MHz
 const double fTOF_TdcClkPer = 1./fTOF_TdcClkFreq; // period in sec
@@ -43,4 +62,5 @@ const int fMPD_NbChannelsPerEnd  {  3};
 const int fTTOF_NbChannels      { fTTOF_NbPaddles*fTTOF_NbChannelsPerEnd};
 const int fMTOF_NbChannels      { fMTOF_NbPaddles*fMTOF_NbChannelsPerEnd};
 const int fMPD_NbChannels       { fMPD_NbPaddles *fMPD_NbChannelsPerEnd };
+const int fNbOfFebS{1};
 

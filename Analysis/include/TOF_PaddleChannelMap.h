@@ -9,6 +9,7 @@
 #include "TObject.h"
 #include "TString.h"
 #include "TOF_ChannelConversion.h"
+#include "TOF_Constants.h"
 
 /// paddle ID = 0xABBC
 /// A: System Idx, B: Paddle Idx, C: Channel Idx within a paddle
@@ -24,44 +25,37 @@ class TOF_PaddleChannelMap : public TObject
 
 			thePadMap->fillMapConnIdToPaddleId();
 			thePadMap->fillMapPaddleIdToConnId();
-			thePadMap->fillMapChannelIdAndPaddleId();
   
   		return thePadMap;
   	};
   
   	~TOF_PaddleChannelMap() = default;
 	
-	public:
-		enum eSystem : uint16_t {
-			fTopTOF = 0,
-			fMidTOF = 1,
-			fMPD    = 2,
-			fTrig   = 3,
-			fPPS    = 4,
-		};
-
 	private:
+		int  fVerbose{0};
 		void fillMapConnIdToPaddleId();
 		void fillMapPaddleIdToConnId();
 		void fillMapChannelIdAndPaddleId();
 
-		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddleId; // pair<FEB-S Idx, ConnId> --> paddle Idx 0xABBC
-		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleIdToConnId;
-		std::map< uint16_t, uint32_t > fMap_PaddleIdToChannelId;
-		std::map< uint32_t, uint16_t > fMap_ChannelIdToPaddleId;
-
-	public:
-		/// based on the maps
-		uint16_t getPaddleId( uint8_t FebS_idx, uint8_t connId );
-		uint16_t getPaddleId( uint32_t absChanId );
-		uint32_t getAbsoluteChannelId( uint16_t paddleId );
-		std::pair<uint8_t, uint8_t> getFebSIdxAndConnId( uint16_t paddleId );
-
+		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddleIdx; // pair<FEB-S Idx, ConnIdOnFebS> --> paddle Idx 0xABBC
+		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleIdxToConnIDs; // paddle Idx 0xABBC--> pair<FEB-S Idx, ConnIdOnFebS>
+	private:
 		/// paddleID <-> paddle Indice (system, paddle, channel)
-		uint16_t getPaddleId( uint16_t systemIdx, uint16_t paddleIdx, uint16_t channelIdx );
-		uint16_t getSystemIdx         ( uint16_t paddleId ){ return (paddleId>>12) & 0xF; };
-		uint16_t getPaddleIdxInSystem ( uint16_t paddleId ){ return (paddleId>>4) & 0xFF; };
-		uint16_t getChannelIdxInPaddle( uint16_t paddleId ){ return paddleId & 0xF; };
+		uint16_t getPaddleIdx( uint16_t systemIdx, uint16_t paddleLocId, uint16_t sipmLocId );
+
+		uint8_t extractSystemIdx  ( uint16_t paddleIdx ){ return (paddleIdx>>12) & 0xF ; };
+		uint8_t extractPaddleLocId( uint16_t paddleIdx ){ return (paddleIdx>> 4) & 0xFF; };
+		uint8_t extractSipmLocId  ( uint16_t paddleIdx ){ return paddleIdx       & 0xF ; };
+		uint8_t getFebSIdx( uint8_t connIdOnFebD );
+
+	
+	public:
+		uint16_t getPaddleIdx( uint8_t FebS_idx, uint8_t connId );
+		uint8_t  getSystemIdx  ( uint8_t FebS_idx, uint8_t connId );
+		uint8_t  getPaddleLocId( uint8_t FebS_idx, uint8_t connId );
+		uint8_t  getSipmLocId  ( uint8_t FebS_idx, uint8_t connId );
+		
+		void dump();
 	  
 		ClassDef(TOF_PaddleChannelMap, 1)
 

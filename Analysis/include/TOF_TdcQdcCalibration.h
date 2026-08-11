@@ -18,7 +18,7 @@ class TOF_TdcQdcCalibration : public TObject
     TOF_TdcQdcCalibration() { 
 			initializeParams(); 
 		};
-    TOF_TdcQdcCalibration( const char* fTdcCalib, const char* fQdcCalib )
+    TOF_TdcQdcCalibration( std::string fTdcCalib, std::string fQdcCalib )
 		{
 			initializeParams(); 
       readTdcCalib( fTdcCalib );
@@ -75,10 +75,10 @@ class TOF_TdcQdcCalibration : public TObject
 		std::vector<double> getTdcParams( uint32_t absChannelID, uint8_t tacID );
 		
 
-    int readTdcCalib( const char *fname );
-    int readQdcCalib( const char *fname );
-		int readCalibrationFiles( const char* fTdcCalib, const char* fQdcCalib );
-		int readCalibrationFiles( const char* dirPath );
+    int readTdcCalib( std::string fname );
+    int readQdcCalib( std::string fname );
+		int readCalibrationFiles( std::string fTdcCalib, std::string fQdcCalib );
+		int readCalibrationFiles( std::string dirPath );
 		void printTdcCalibTable( uint32_t absChannelID );
 		void printQdcCalibTable( uint32_t absChannelID );
 		void printCalibTable( uint32_t absChannelID );

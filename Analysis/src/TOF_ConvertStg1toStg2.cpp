@@ -38,6 +38,12 @@ int TOF_ConvertStg1toStg2::addBranches()
 	auto thePaddle   = TOF_PaddleChannelMap::getInstance();
 	auto theCalib    = TOF_TdcQdcCalibration::getInstance();
 
+	thePaddle->dump();
+	
+	// Load specified or default calibration files
+  theCalib->readTdcCalib(fTdcPath.Data());
+  theCalib->readQdcCalib(fQdcPath.Data());
+
 	fStg1->setBranchAddress(); // duplicate
 	fStg1->getEntry(0);
 	long long frameID0= fStg1->getFrameID(); 
@@ -78,7 +84,8 @@ int TOF_ConvertStg1toStg2::addBranches()
 		auto connID_S  = theChanConv->getConnIdOnFebS( channelID );
 
 		/// paddle IDs
-		auto paddleID = thePaddle->getPaddleId( channelID );
+		auto paddleIdx = thePaddle->getPaddleIdx( connID_D, connID_S );
+		//auto paddleID = thePaddle->getPaddleLocId( connID_D, connID_S );
 
 		long long currT = CLOCKS_IN_A_FRAME * frameID + tCoarse;
 		long long diffT = currT - initialT;
@@ -108,7 +115,7 @@ int TOF_ConvertStg1toStg2::addBranches()
     fStg2->setChannelID    ( channelID );
 		fStg2->setConnID_FebD  ( connID_D  );
 		fStg2->setConnID_FebS  ( connID_S  );
-		fStg2->setPaddleID     ( paddleID  );
+		fStg2->setPaddleID     ( paddleIdx  );
     fStg2->setTacID        ( tacID     );
     fStg2->setTCoarse      ( tCoarse   );
     fStg2->setECoarse      ( eCoarse   );
@@ -139,6 +146,9 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 		TString name2 = name1(0, idx); 
 		kPathStg2 = Form( "%s/%s.stg2.root", dir.Data(), name2.Data() );
 	}
+
+	fTdcPath = tdc_cal_tsv;
+	fQdcPath = qdc_cal_tsv;
 
 	/// active asic list
 	auto theAsicList = TOF_ActiveAsicList::getInstance();

@@ -41,6 +41,9 @@ class TOF_ConvertStg1toStg2 : public TObject
 		void setClassStg1();
 		void setClassStg2();
 
+		TString fTdcPath;
+		TString fQdcPath;
+
 	public: 
 		int  setInputPathStg1( const char* fpath );
 		int  addBranches();

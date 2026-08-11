@@ -27,7 +27,8 @@ bool runConvertStg1ToStg2(const std::string& inputFile,
 {
 	/// Class setup
 	auto theConvStg = TOF_ConvertStg1toStg2::getInstance();
-
+  auto theCalib    = TOF_TdcQdcCalibration::getInstance();
+  
 	/// output naming
   const char* inputFile_c = inputFile.c_str();	
 	TString name_root = std::filesystem::path(inputFile_c).filename().c_str();
@@ -35,13 +36,11 @@ bool runConvertStg1ToStg2(const std::string& inputFile,
 		std::cerr<< "[ERR] Wrong Input File. Provide *.stg1.root" << std::endl;
 		return false;
 	}
-
 	TString name_file = (TString) name_root(0, name_root.Index( ".stg1.root" ));
 	TString name_dir  = std::filesystem::path(inputFile_c).parent_path().c_str();
 	TString outputDir = outputBase.empty()==true? name_dir : (TString) outputBase;
-
 	auto output = Form("%s/%s.stg2.root", outputDir.Data(), name_file.Data());
-	  
+
 	//theConvStg->convertStg1ToStg2( inputFile_c, Form("%s/%s.stg2.root", outputDir.Data(), name_file.Data()) );
 	theConvStg->convertStg1ToStg2( inputFile_c, output, tdc_cal.c_str(), qdc_cal.c_str(), asic_list.c_str() );
 
