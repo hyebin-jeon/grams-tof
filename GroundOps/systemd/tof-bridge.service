@@ -1,0 +1,33 @@
+[Unit]
+Description=GRAMS TOF MQTT-to-MySQL Bridge
+After=network.target mysql.service
+
+[Service]
+Type=simple
+
+# ====================================================================
+# CONFIGURATION SELECTOR
+# ====================================================================
+# --- Choice A: Chicago ---
+User=ksakai
+Environment="GLIB=/home/ksakai/work/source/grams-tof/00build/00install"
+WorkingDirectory=/home/ksakai/work/source/grams-tof/00build/00install/ground
+StandardOutput=append:/home/ksakai/work/source/grams-tof/00build/00install/ground/log/proc.log
+
+# --- Choice B: SaberTooth ---
+# User=pgrams
+# Environment="GLIB=/home/pgrams/tof_readout/daq/grams-tof/00build/00install"
+# WorkingDirectory=/home/pgrams/tof_readout/daq/grams-tof/00build/00install/ground
+# StandardOutput=append:/home/pgrams/tof_readout/daq/grams-tof/00build/00install/ground/log/proc.log
+
+# ====================================================================
+# EXECUTION LOGIC
+# ====================================================================
+ExecStart=/bin/bash -c 'source ${GLIB}/ground/env/grams_tof_ground_env.sh && /usr/bin/python3 -u ${GLIB}/ground/bin/tof_bridge.py'
+
+StandardError=inherit
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

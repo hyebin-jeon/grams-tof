@@ -28,6 +28,7 @@ public:
     GRAMS_TOF_CommandClient& operator=(const GRAMS_TOF_CommandClient&) = delete;
 
     bool isConnected() const;
+    bool isHealthy() const;
 
 private:
     void run();  // Main client connection/read loop
@@ -51,4 +52,9 @@ private:
     // Connection State (Replaces the server's clientList_)
     std::unique_ptr<GRAMS_TOF_Client> hubConnection_;
     mutable std::mutex connectionMutex_; // Protects access to hubConnection_
+
+    // healty checker
+    std::chrono::steady_clock::time_point last_activity_time_;
+    //const std::chrono::seconds heartbeat_timeout_{5}; //default 5 sec
+    const std::chrono::seconds heartbeat_timeout_{3600*24}; //1 day: heartbeat free 
 };

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse, sys, time
 import pandas as pd
 from petsys import daqd, fe_temperature, config, fe_power # type: ignore
@@ -100,113 +98,148 @@ def print_table(sensor_list, show_sipm=True):
     print('')
 
 
-def read_temperature_sensors(acq_time=0.0, interval=60.0, fileName="/dev/null", startup=False, debug=False):
-    print("read_temperature_sensors called with:", acq_time, interval, fileName, startup, debug)
+# --- FUNCTION 1: Temperature Stabilization ---
+def read_temperature_sensors(acq_time=600.0, interval=60.0, fileName="/dev/null", startup=False, debug=False, quiet=False):
+    """Monitors ASIC temperature stabilization (600s max timeout, 60s check interval, 0.2 C delta quit threshold)."""
+    if not quiet:
+        print("read_temperature_sensors (Stabilization Mode) called with:", acq_time, interval, fileName, startup, debug)
 
-    # Create connection
     conn = daqd.Connection()
 
-    # Check FEM power status
     for portID, slaveID in conn.getActiveFEBDs():
         if not fe_power.get_fem_power_status(conn, portID, slaveID):
-            print(f'WARNING: FEM Power for (portID, slaveID) = ({portID}, {slaveID}) is OFF.')
+            if not quiet:
+                print(f'WARNING: FEM Power for (portID, slaveID) = ({portID}, {slaveID}) is OFF.')
             fe_power.set_fem_power(conn, portID, slaveID, "on")
             time.sleep(0.01)
 
-    # Check sensor list
     sensor_list = fe_temperature.get_sensor_list(conn, debug=debug)
     if not sensor_list:
-        print("ERROR: No sensors found. Check connections and power.")
+        if not quiet:
+            print("ERROR: No sensors found. Check connections and power.")
         return False
     else:
         sensor_list.sort(key=lambda x: x.get_location())
 
-    if debug:
-        for sensor in sensor_list:
-            print(sensor.get_location(), sensor.get_temperature())
+    file_exists_and_not_empty = os.path.exists(fileName) and os.path.getsize(fileName) > 0
+    dataFile = open(fileName, "a" if file_exists_and_not_empty else "w")
 
-    # Open output file
-    dataFile = open(fileName, "w")
-    write_table_header(dataFile, sensor_list)
+    if not file_exists_and_not_empty:
+        write_table_header(dataFile, sensor_list)
+
     temp_cache = write_table_row(dataFile, sensor_list, conn.getCurrentTimeTag())
 
-    # Normal measurement loop
-    if not startup:
-        print_table(sensor_list)
-        tDelta = acq_time if acq_time < interval else interval
-        tNow = time.time()
-        tEnd = tNow + acq_time
-        while tNow < tEnd:
-            time.sleep(tDelta)
-            tNow += tDelta
-            write_table_row(dataFile, sensor_list, conn.getCurrentTimeTag())
-            print_table(sensor_list)
-
-    # Startup temperature stabilization
-    else:
-        print('INFO: Starting up system for temperature stabilization')
-        conn.initializeSystem()
-        systemConfig = config.Config()
-        systemConfig.loadToHardware(conn, bias_enable=config.APPLY_BIAS_OFF)
-
+    if not quiet:
         print_table(sensor_list, show_sipm=False)
 
-        STARTUP_TIME = 600
-        STARTUP_INTERVAL = 60
-        STARTUP_T_DELTA = 0.2
+    STARTUP_TIME = acq_time if acq_time > 0 else 600.0
+    STARTUP_INTERVAL = interval if interval > 0 else 60.0
+    STARTUP_T_DELTA = 0.2
 
-        tDelta = STARTUP_INTERVAL
-        tNow = time.time()
-        tEnd = tNow + STARTUP_TIME
-        stable = False
-        while not stable:
-            print(f'INFO: Stabilizing ASIC temperature. Waiting for {STARTUP_INTERVAL} seconds.\n')
-            time.sleep(tDelta)
-            tNow += tDelta
-            temp_now = write_table_row(dataFile, sensor_list, conn.getCurrentTimeTag())
+    tNow = time.time()
+    tEnd = tNow + STARTUP_TIME
+    stable = False
+
+    while not stable:
+        if not quiet:
+            print(f'INFO: Stabilizing ASIC temperature. Waiting for {STARTUP_INTERVAL} seconds...\n')
+        time.sleep(STARTUP_INTERVAL)
+        tNow += STARTUP_INTERVAL
+        
+        temp_now = write_table_row(dataFile, sensor_list, conn.getCurrentTimeTag())
+        if not quiet:
             print_table(sensor_list, show_sipm=False)
 
-            stable = True
-            for t1, t2 in zip(temp_now, temp_cache):
-                if fabs(t1 - t2) > STARTUP_T_DELTA:
-                    stable = False
-                    break
-            temp_cache = temp_now.copy()
-
-            if stable:
-                print(f'INFO: ASIC temperatures stable over the last {STARTUP_INTERVAL} seconds. System is ready to start data acquisition/calibration.')
-            elif tNow >= tEnd:
-                print(f'WARNING: Failed to reach stable ASIC temperatures after {(STARTUP_TIME / 60):.1f} minutes.')
+        stable = True
+        for t1, t2 in zip(temp_now, temp_cache):
+            if fabs(t1 - t2) > STARTUP_T_DELTA:
+                stable = False
                 break
+        temp_cache = temp_now.copy()
+
+        if stable:
+            if not quiet:
+                print(f'INFO: ASIC temperatures stable (diff <= {STARTUP_T_DELTA} C) over last {STARTUP_INTERVAL} s. Quitting stabilization.')
+            break
+        elif tNow >= tEnd:
+            if not quiet:
+                print(f'WARNING: Reached timeout limit of {STARTUP_TIME} seconds before stabilization.')
+            break
 
     dataFile.close()
-    print("[read_temperature_sensors] Measurement finished.")
+    if not quiet:
+        print("[read_temperature_sensors] Stabilization phase finished.")
     return True
 
 
-def safe_read_temperature_sensors(acq_time=0.0, interval=60.0, fileName="/dev/null", startup=False, debug=False):
+# --- FUNCTION 2: Single-Shot Data Dumping ---
+def startTempRecord(fileName="/dev/null", debug=False, quiet=False):
+    """Single-shot sensor measurement: records one temperature snapshot to file and returns."""
+    if not quiet:
+        print("startTempRecord (Single-Shot Mode) called with:", fileName, debug)
+
+    conn = daqd.Connection()
+
+    for portID, slaveID in conn.getActiveFEBDs():
+        if not fe_power.get_fem_power_status(conn, portID, slaveID):
+            if not quiet:
+                print(f'WARNING: FEM Power for (portID, slaveID) = ({portID}, {slaveID}) is OFF.')
+            fe_power.set_fem_power(conn, portID, slaveID, "on")
+            time.sleep(0.01)
+
+    sensor_list = fe_temperature.get_sensor_list(conn, debug=debug)
+    if not sensor_list:
+        if not quiet:
+            print("ERROR: No sensors found. Check connections and power.")
+        return False
+    else:
+        sensor_list.sort(key=lambda x: x.get_location())
+
+    file_exists_and_not_empty = os.path.exists(fileName) and os.path.getsize(fileName) > 0
+    dataFile = open(fileName, "a" if file_exists_and_not_empty else "w")
+
+    if not file_exists_and_not_empty:
+        write_table_header(dataFile, sensor_list)
+
+    write_table_row(dataFile, sensor_list, conn.getCurrentTimeTag())
+    if not quiet:
+        print_table(sensor_list)
+
+    dataFile.close()
+    if not quiet:
+        print("[startTempRecord] Single-shot measurement recorded.")
+    return True
+
+
+def safe_read_temperature_sensors(acq_time=600.0, interval=60.0, fileName="/dev/null", startup=False, debug=False, quiet=False, record_mode=False):
     try:
-        return read_temperature_sensors(acq_time, interval, fileName, startup, debug)
+        if record_mode:
+            return startTempRecord(fileName, debug, quiet)
+        else:
+            return read_temperature_sensors(acq_time, interval, fileName, startup, debug, quiet)
     except Exception as e:
-        print("[Python] Caught exception:", e)
-        if os.environ.get("DEBUG"):
-            traceback.print_exc()
+        if not quiet:
+            print("[Python] Caught exception:", e)
+            if os.environ.get("DEBUG"):
+                traceback.print_exc()
         return False
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Measure temperature from all connected sensors')
-    parser.add_argument("--time", type=float, default=0.0, help="Acquisition time (in seconds)")
+    parser.add_argument("--time", type=float, default=600.0, help="Acquisition/timeout time (in seconds)")
     parser.add_argument("--interval", type=float, default=60.0, help="Measurement interval (in seconds)")
     parser.add_argument("-o", type=str, default="/dev/null", dest="fileName", help="Data filename")
     parser.add_argument("--startup", action="store_true", help="Check temperature stability when starting up")
+    parser.add_argument("--record", action="store_true", help="Run single-shot temperature record mode")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("--quiet", action="store_true", help="Suppress terminal output and tables")
+
     args = parser.parse_args()
 
-    ok = safe_read_temperature_sensors(args.time, args.interval, args.fileName, args.startup, args.debug)
+    ok = safe_read_temperature_sensors(args.time, args.interval, args.fileName, args.startup, args.debug, args.quiet, record_mode=args.record)
     return 0 if ok else 1
 
 
 if __name__ == '__main__' and not hasattr(sys, '_called_from_c'):
     sys.exit(main(sys.argv))
-

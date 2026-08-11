@@ -1,5 +1,6 @@
 #include "GRAMS_TOF_Client.h"
 #include "GRAMS_TOF_FDManager.h"
+#include "GRAMS_TOF_Logger.h"
 #include <iostream>
 #include <vector>
 #include <unistd.h>
@@ -16,8 +17,9 @@ GRAMS_TOF_Client::GRAMS_TOF_Client(int fd)
         fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
 
         GRAMS_TOF_FDManager::instance().addClientFD(fd_);
+        Logger::instance().debug("[Client] Client connected and initialized with FD: {}", fd_);
     } else {
-        std::cerr << "[Client] Invalid FD passed to constructor\n";
+        Logger::instance().error("[Client] Invalid FD passed to constructor!");
     }
 }
 
@@ -87,6 +89,7 @@ ssize_t GRAMS_TOF_Client::recvData(void* buffer, size_t size) {
 // Close the client FD safely
 void GRAMS_TOF_Client::closeFD() {
     if (fd_ >= 0) {
+        Logger::instance().debug("[Client] Safely closing and removing client connection on FD: {}", fd_);
         GRAMS_TOF_FDManager::instance().removeClientFD(fd_);
         fd_ = -1;
         readBuffer_.clear();

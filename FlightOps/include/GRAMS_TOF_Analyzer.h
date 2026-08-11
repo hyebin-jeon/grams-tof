@@ -56,7 +56,10 @@ private:
     template<typename Func, typename... Args>
     bool safeRun(const std::string& name, Func&& func, Args&&... args) {
         try {
-            return func(std::forward<Args>(args)...);
+            Logger::instance().info("[Analyzer] Starting {}...", name);
+            bool result = func(std::forward<Args>(args)...);
+            Logger::instance().info("[Analyzer] {} finished with status: {}", name, result ? "SUCCESS" : "FAILED");
+            return result;
         }
         catch (const std::exception& e) {
             Logger::instance().error("[Analyzer] Exception in {}: {}", name, e.what());

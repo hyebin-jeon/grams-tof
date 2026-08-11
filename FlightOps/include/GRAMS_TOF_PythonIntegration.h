@@ -23,6 +23,8 @@ public:
                            Args&&... args);
     bool runPetsysInitSystem(const std::string& scriptModule);
     bool runPetsysStopDAQ(const std::string& scriptModule);
+    bool runPetsysToggleSystemPower(const std::string& scriptPath,
+                                    const std::string& mode);
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptModule,
                                            const std::string& outputFile,
                                            const std::vector<int>& portIDs,

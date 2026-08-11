@@ -10,6 +10,24 @@ import os
 import os.path
 import sys
 import traceback
+from contextlib import contextmanager
+
+@contextmanager
+def suppress_stdout_stderr():
+    """Redirects OS-level stdout and stderr to os.devnull to silence underlying C++ prints."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stdout = os.dup(1)
+    old_stderr = os.dup(2)
+    try:
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        yield
+    finally:
+        os.dup2(old_stdout, 1)
+        os.dup2(old_stderr, 2)
+        os.close(old_stdout)
+        os.close(old_stderr)
+        os.close(devnull)
 
 def acquire_qdc_calibration(config_path, file_name_prefix):
     print("acquire_qdc_calibration called with:", config_path, file_name_prefix)
@@ -45,9 +63,12 @@ def acquire_qdc_calibration(config_path, file_name_prefix):
     channelStep = int(math.ceil(64.0 / simultaneousChannels))
 
     # Take some data while saturating the range
+    sys.stdout.write("Acquiring saturation data: ")
+    sys.stdout.flush()
+
     for firstChannel in range(0, channelStep):
         activeChannels = [channel for channel in range(firstChannel, 64, channelStep)]
-        activeChannels_string = ", ".join(str(c) for c in activeChannels)
+        activeChannels_string = " ".join(f"[{c}]" for c in activeChannels)
 
         cfg = deepcopy(asicsConfig)
         for ac in list(cfg.values()):
@@ -57,16 +78,20 @@ def acquire_qdc_calibration(config_path, file_name_prefix):
         daqd_conn.setAsicsConfig(cfg)
 
         for phase in [float(x) / nPhases for x in range(nPhases)]:
-            t_start = time.time()
             daqd_conn.set_test_pulse_febds(nLengths, 1024, phase, False)
-            daqd_conn.acquire(0.02, -1, phase)
-            t_finish = time.time()
-            print(f"Channel(s): {activeChannels_string} Phase: {phase:.3f} (saturation) in {t_finish - t_start:.2f} seconds")
+            with suppress_stdout_stderr():
+                daqd_conn.acquire(0.02, -1, phase)
+        sys.stdout.write(f"{activeChannels_string} ")
+        sys.stdout.flush()
+    sys.stdout.write("\n") 
 
     # Main data acquisition
+    print("Acquiring main QDC calibration data...")
     for firstChannel in range(0, channelStep):
         activeChannels = [channel for channel in range(firstChannel, 64, channelStep)]
         activeChannels_string = ", ".join(str(c) for c in activeChannels)
+        sys.stdout.write(f"  Channel(s) [{activeChannels_string}]: ")
+        sys.stdout.flush()
 
         cfg = deepcopy(asicsConfig)
         for ac in list(cfg.values()):
@@ -74,13 +99,17 @@ def acquire_qdc_calibration(config_path, file_name_prefix):
                 ac.channelConfig[channel].setValue("trigger_mode_1", 0b01)
         daqd_conn.setAsicsConfig(cfg)
 
+        step = 0
         for phase in [float(x) / nPhases for x in range(nPhases)]:
             for integrationTime in range(0, nLengths, lengthStep):
-                t_start = time.time()
                 daqd_conn.set_test_pulse_febds(integrationTime, 1024, phase, False)
-                daqd_conn.acquire(0.02, integrationTime, phase)
-                t_finish = time.time()
-                print(f"Channel(s): {activeChannels_string} Phase: {phase:.3f} clk Length {integrationTime} clk in {t_finish - t_start:.2f} seconds")
+                with suppress_stdout_stderr():
+                    daqd_conn.acquire(0.02, integrationTime, phase)
+                if step % 10 == 0:
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
+                step += 1
+        sys.stdout.write("\n")
 
     try:
         systemConfig.loadToHardware(daqd_conn, bias_enable=config.APPLY_BIAS_OFF)
@@ -111,4 +140,3 @@ def main():
 
 if __name__ == '__main__' and not hasattr(sys, '_called_from_c'):
     main()
-

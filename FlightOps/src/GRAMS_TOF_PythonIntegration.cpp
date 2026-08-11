@@ -9,6 +9,7 @@
 #include <exception>
 #include <Python.h>
 #include <filesystem>
+#include <cstdarg>
 
 PYBIND11_EMBEDDED_MODULE(grams_tof, m) {
     pybind11::class_<GRAMS_TOF_DAQManager>(m, "DAQManager")
@@ -90,15 +91,37 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
         namespace py = pybind11;
         try {
             auto module = py::module_::import(scriptPath.c_str());
-
             py::object func = module.attr(functionName.c_str());
+    
+            auto log_bridge = [](const py::args& args, const py::kwargs& kwargs) {
+                std::string message;
+                for (size_t i = 0; i < args.size(); ++i) {
+                    message += py::str(args[i]).cast<std::string>();
+                    if (i + 1 < args.size()) message += " ";
+                }
+                if (!message.empty()) {
+                    Logger::instance().info("[Python] {}", message);
+                }
+            };
+    
+            py::object builtins = py::module_::import("builtins");
+            py::object original_print = builtins.attr("print");
+            builtins.attr("print") = py::cpp_function(log_bridge);
+    
             py::object result = func(std::forward<Args>(args)...);
-
+            builtins.attr("print") = original_print;
+    
             if (!result.template cast<bool>()) {
                 return false;
             }
             return true;
         } catch (const py::error_already_set& e) {
+            try {
+                py::object builtins = py::module_::import("builtins");
+                if (builtins.attr("print").ptr() != Py_None) {
+                }
+            } catch(...) {}
+    
             Logger::instance().error("[PythonIntegration] Python Error: {}", e.what());
             return false;
         }
@@ -110,6 +133,11 @@ explicit PythonIntegrationImpl(GRAMS_TOF_DAQManager& daq)
 
     bool runPetsysStopDAQ(const std::string& scriptPath) {
         return runPythonFunction(scriptPath, "safe_stop_daq");
+    }
+
+    bool runPetsysToggleSystemPower(const std::string& scriptPath, 
+                                    const std::string& mode) {
+        return runPythonFunction(scriptPath, "safe_toggle_system_power", mode);
     }
     
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
@@ -235,6 +263,10 @@ public:
     bool runPetsysStopDAQ(const std::string& scriptPath) {
         return impl_->runPetsysStopDAQ(scriptPath);
     }
+    bool runPetsysToggleSystemPower(const std::string& scriptPath,
+                                    const std::string& mode) {
+        return impl_->runPetsysToggleSystemPower(scriptPath, mode);
+    }
     bool runPetsysMakeBiasCalibrationTable(const std::string& scriptPath,
                                            const std::string& outputFile,
                                            const std::vector<int>& portIDs,
@@ -356,6 +388,11 @@ bool GRAMS_TOF_PythonIntegration::runPetsysInitSystem(const std::string& scriptP
 
 bool GRAMS_TOF_PythonIntegration::runPetsysStopDAQ(const std::string& scriptPath) {
     return impl_->runPetsysStopDAQ(scriptPath);
+}
+
+bool GRAMS_TOF_PythonIntegration::runPetsysToggleSystemPower(const std::string& scriptPath,
+    const std::string& mode) {
+    return impl_->runPetsysToggleSystemPower(scriptPath, mode);
 }
 
 bool GRAMS_TOF_PythonIntegration::runPetsysMakeBiasCalibrationTable(

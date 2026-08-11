@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <iomanip>
+#include <condition_variable>
 
 #include "GRAMS_TOF_CommandCodec.h"
 
@@ -22,6 +23,16 @@
 std::mutex logMutex;
 std::queue<std::string> logQueue;
 std::atomic<bool> running{true};
+std::atomic<int> heartbeatInterval{1};
+
+std::atomic<int> commandClientSock{-1};
+std::atomic<int> eventClientSock{-1};
+
+std::mutex callbackMutex;
+std::condition_variable callbackCv;
+uint16_t activeTargetCode = 0;
+uint16_t lastFinishedCmd = 0;
+uint32_t lastCmdStatus = 0;
 
 // ---------- Logging helper ----------
 void addLog(const std::string& msg) {
@@ -104,106 +115,271 @@ int setupServer(int port) {
 }
 
 // ---------- Command Server Thread ----------
-void commandServerThread(int port, int& clientSock) {
+void commandServerThread(int port) {
+    int serverSock = -1;
     try {
-        int serverSock = setupServer(port);
+        // Initialize the server socket ONCE and keep it open
+        serverSock = setupServer(port);
         addLog("[CommandServer] Listening on port " + std::to_string(port));
 
-        sockaddr_in clientAddr{};
-        socklen_t clientLen = sizeof(clientAddr);
-        clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
-        if (clientSock < 0) {
-            addLog("[CommandServer] accept() failed");
-            close(serverSock);
-            return;
-        }
-
-        addLog("[CommandServer] DAQ client connected");
-
-        char buffer[1024];
         while (running) {
-            ssize_t n = recv(clientSock, buffer, sizeof(buffer)-1, 0);
-
-            if (n > 0) {
-                std::stringstream ss;
-                ss << "[CommandServer] Received " << std::dec << n << " bytes: ";
-                ss << std::hex << std::uppercase;
-                for (ssize_t i = 0; i < n; ++i) {
-                    ss << std::setw(2) << std::setfill('0') << (int)(unsigned char)buffer[i] << " ";
+            sockaddr_in clientAddr{};
+            socklen_t clientLen = sizeof(clientAddr);
+            
+            // Wait for a connection (this blocks until a DAQ connects)
+            int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+            
+            if (conn < 0) {
+                if (running) {
+                    addLog("[CommandServer] accept() failed: " + std::string(std::strerror(errno)));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 }
-                addLog(ss.str());
-            } else if (n == 0) {
-                addLog("[CommandServer] Client disconnected");
-                break;
-            } else {
-                if (errno != EWOULDBLOCK && errno != EAGAIN) {
-                    addLog(std::string("[CommandServer] Recv error: ") + std::strerror(errno));
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                continue;
             }
+
+            // Store the new connection in the global atomic
+            commandClientSock.store(conn); 
+            addLog("[CommandServer] DAQ client connected (FD=" + std::to_string(conn) + ")");
+
+            char buffer[1024];
+            while (running) {
+                // Check if the DAQ sent any data or closed the connection
+                // This read is necessary to detect when the DAQ closes its end
+                ssize_t n = recv(commandClientSock.load(), buffer, sizeof(buffer)-1, 0);
+
+                if (n > 0) {
+                    // Data received (e.g., ACKs from the DAQ)
+                } else if (n == 0) {
+                    addLog("[CommandServer] DAQ disconnected gracefully");
+                    break; // Exit inner loop to wait for a new connection
+                } else {
+                    // Handle errors (EWOULDBLOCK is ignored as we are in a simple loop)
+                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                        addLog("[CommandServer] Connection error: " + std::string(std::strerror(errno)));
+                        break; // Exit inner loop to wait for a new connection
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
+            }
+
+            // Connection lost: Clean up this specific client socket
+            int fd_to_close = commandClientSock.exchange(-1);
+            if (fd_to_close >= 0) {
+                ::close(fd_to_close);
+            }
+            addLog("[CommandServer] Waiting for new DAQ reconnection...");
         }
 
-        close(clientSock);
-        clientSock = -1; // Important to reset global socket file descriptor
-        close(serverSock);
     } catch (const std::exception& e) {
-        addLog(std::string("[CommandServer] Exception: ") + e.what());
+        addLog(std::string("[CommandServer] Fatal Exception: ") + e.what());
+    }
+
+    // Final cleanup of the listener socket when the program exits
+    if (serverSock >= 0) {
+        ::close(serverSock);
     }
 }
-
 
 // ---------- Event Server Thread ----------
-void eventServerThread(int port, int& clientSock) {
+void eventServerThread(int port) { 
+    int serverSock = -1;
     try {
-        int serverSock = setupServer(port);
+        serverSock = setupServer(port);
         addLog("[EventServer] Listening on port " + std::to_string(port));
 
-        sockaddr_in clientAddr{};
-        socklen_t clientLen = sizeof(clientAddr);
-        clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
-        if (clientSock < 0) {
-            addLog("[EventServer] accept() failed");
-            close(serverSock);
-            return;
-        }
-
-        addLog("[EventServer] DAQ client connected");
-
-        char buffer[1024];
         while (running) {
-            ssize_t n = recv(clientSock, buffer, sizeof(buffer)-1, 0); 
-
-            if (n > 0) {
-                // Log the raw bytes received for event data
-                std::stringstream ss;
-                ss << "[EventServer] Received " << std::dec << n << " bytes: ";
-                ss << std::hex << std::uppercase;
-                for (ssize_t i = 0; i < n; ++i) {
-                    ss << std::setw(2) << std::setfill('0') << (int)(unsigned char)buffer[i] << " ";
-                }
-                addLog(ss.str());
-
-            } else if (n == 0) {
-                addLog("[EventServer] Client disconnected");
-                break;
-            } else {
-                if (errno != EWOULDBLOCK && errno != EAGAIN) {
-                    addLog(std::string("[EventServer] Recv error: ") + std::strerror(errno));
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            sockaddr_in clientAddr{};
+            socklen_t clientLen = sizeof(clientAddr);
+            
+            int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+            if (conn < 0) {
+                if (running) std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                continue;
             }
-        }
 
-        close(clientSock);
-        clientSock = -1; // Important to reset global socket file descriptor
-        close(serverSock);
+            eventClientSock.store(conn);
+            addLog("[EventServer] DAQ client connected (FD=" + std::to_string(conn) + ")");
+
+            std::vector<uint8_t> streamBuffer;
+            uint8_t rawBuf[4096];
+
+            while (running) {
+                ssize_t n = recv(eventClientSock.load(), rawBuf, sizeof(rawBuf), 0); 
+                
+                if (n > 0) {
+                    streamBuffer.insert(streamBuffer.end(), rawBuf, rawBuf + n);
+
+                    GRAMS_TOF_CommandCodec::Packet respPkt;
+                    while (streamBuffer.size() >= 14 && GRAMS_TOF_CommandCodec::parse(streamBuffer, respPkt)) {
+                        
+                        if (respPkt.code == 0x5FFE && respPkt.argc >= 2) {
+                            uint16_t reportedCmd = static_cast<uint16_t>(respPkt.argv[0]);
+                            uint32_t status = static_cast<uint32_t>(respPkt.argv[1]);
+                        
+                            std::lock_guard<std::mutex> lock(callbackMutex);
+                            
+                            std::stringstream ss;
+                            ss << "[EventServer] Received Callback for 0x" 
+                               << std::hex << std::uppercase << reportedCmd 
+                               << " Status: " << std::dec << status;
+                            addLog(ss.str());
+                        
+                            if (activeTargetCode != 0 && reportedCmd == activeTargetCode) {
+                                lastFinishedCmd = reportedCmd;
+                                lastCmdStatus = status;
+                                callbackCv.notify_all();
+                            }
+                        }
+                    
+                        // 2. Erase ONLY the parsed packet length from the buffer
+                        size_t parsedLen = GRAMS_TOF_CommandCodec::getPacketSize(respPkt);
+                        if (parsedLen <= streamBuffer.size()) {
+                            streamBuffer.erase(streamBuffer.begin(), streamBuffer.begin() + parsedLen);
+                        } else {
+                            break; // Guard against unexpected size calculations
+                        }
+                    }
+
+                } else if (n == 0) {
+                    addLog("[EventServer] DAQ disconnected gracefully");
+                    break; 
+                } else {
+                    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                        addLog("[EventServer] Connection error: " + std::string(std::strerror(errno)));
+                        break; 
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                }
+            }
+
+            int fd_to_close = eventClientSock.exchange(-1);
+            if (fd_to_close >= 0) ::close(fd_to_close);
+            addLog("[EventServer] Waiting for new DAQ reconnection...");
+        }
     } catch (const std::exception& e) {
-        addLog(std::string("[EventServer] Exception: ") + e.what());
+        addLog(std::string("[EventServer] Fatal Exception: ") + e.what());
     }
+
+    if (serverSock >= 0) ::close(serverSock);
 }
 
+// ---------- Python Socket Bridge Thread ----------
+void pythonBridgeThread(int port) {
+    int serverSock = -1;
+    try {
+        serverSock = setupServer(port);
+        addLog("[PythonBridge] Listening for external commands on port " + std::to_string(port));
+
+        while (running) {
+            sockaddr_in clientAddr{};
+            socklen_t clientLen = sizeof(clientAddr);
+            int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+            
+            if (conn < 0) {
+                if (running) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+
+            char buffer[256] = {0};
+            ssize_t n = recv(conn, buffer, sizeof(buffer) - 1, 0);
+            
+            if (n > 0) {
+                std::string inputStr(buffer);
+                while (!inputStr.empty() && (inputStr.back() == '\r' || inputStr.back() == '\n' || inputStr.back() == ' ')) {
+                    inputStr.pop_back();
+                }
+
+                addLog("[PythonBridge] Received external command: " + inputStr);
+
+                if (commandClientSock.load() >= 0) {
+                    try {
+                        std::vector<int> args;
+                        std::vector<std::string> tokens;
+                        std::istringstream iss(inputStr);
+                        std::string token;
+                        
+                        while (iss >> token) tokens.push_back(token);
+
+                        if (!tokens.empty()) {
+                            uint16_t targetCode = static_cast<uint16_t>(std::stoul(tokens[0], nullptr, 0));
+                            for (size_t i = 1; i < tokens.size(); ++i) {
+                                args.push_back(std::stoi(tokens[i]));
+                            }
+                        
+                            // Phase 1: Set callback state under lock, then release immediately
+                            {
+                                std::lock_guard<std::mutex> lock(callbackMutex);
+                                activeTargetCode = targetCode;
+                                lastFinishedCmd = 0;
+                                lastCmdStatus = 0;
+                            }
+                        
+                            // Phase 2: Send packet without holding callbackMutex
+                            auto pkt = buildPacket(targetCode, args);
+                            sendPacket(commandClientSock.load(), pkt);
+                            logPacketSent(pkt);
+                            
+                            addLog("[PythonBridge] Command sent. Waiting for 0x5FFE callback...");
+                        
+                            // Phase 3: Lock only to block on condition variable waiting for EventServer
+                            std::unique_lock<std::mutex> lock(callbackMutex);
+                            bool finished = callbackCv.wait_for(lock, std::chrono::seconds(3600), [targetCode]() {
+                                return lastFinishedCmd == targetCode;
+                            });
+                        
+                            activeTargetCode = 0;
+                        
+                            // Phase 4: Send execution result back to external Python client
+                            if (finished && lastCmdStatus == 0) {
+                                std::string ack = "DONE:" + tokens[0] + "\n";
+                                send(conn, ack.c_str(), ack.size(), 0);
+                                addLog("[PythonBridge] Command 0x" + tokens[0] + " COMPLETED SUCCESSFUL.");
+                            } else if (finished) {
+                                std::string err = "ERROR: Command failed with status " + std::to_string(lastCmdStatus) + "\n";
+                                send(conn, err.c_str(), err.size(), 0);
+                            } else {
+                                std::string err = "ERROR: Timeout waiting for callback\n";
+                                send(conn, err.c_str(), err.size(), 0);
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        addLog("[PythonBridge] Command parse error: " + std::string(e.what()));
+                        std::string err = "ERROR: Parse failure\n";
+                        send(conn, err.c_str(), err.size(), 0);
+                    }
+                } else {
+                    addLog("[PythonBridge] REJECTED: No DAQ core client connected!");
+                    std::string err = "ERROR: No DAQ client connected\n";
+                    send(conn, err.c_str(), err.size(), 0);
+                }
+            }
+            ::close(conn);
+        }
+    } catch (const std::exception& e) {
+        addLog("[PythonBridge] Exception: " + std::string(e.what()));
+    }
+
+    if (serverSock >= 0) ::close(serverSock);
+}
+
+void heartbeatTask() {
+    while (running) {
+        int currentSock = commandClientSock.load();
+        if (currentSock >= 0) {
+            try {
+                GRAMS_TOF_CommandCodec::Packet hb;
+                hb.code = static_cast<uint16_t>(TOFCommandCode::HEART_BEAT);
+                hb.argc = 0;
+            
+                std::vector<uint8_t> data = GRAMS_TOF_CommandCodec::serialize(hb);
+                send(currentSock, data.data(), data.size(), MSG_NOSIGNAL);
+            } catch (...) {
+                addLog("[Heartbeat] Send failed");
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(heartbeatInterval.load()));
+    }
+}
 
 // ---------- Main ----------
 int main() {
@@ -236,11 +412,10 @@ int main() {
     nodelay(inputWin, TRUE);
     keypad(inputWin, TRUE);
 
-    int commandClientSock = -1;
-    int eventClientSock = -1;
-
-    std::thread tCommand(commandServerThread, 50007, std::ref(commandClientSock));
-    std::thread tEvent(eventServerThread, 50006, std::ref(eventClientSock));
+    std::thread tCommand(commandServerThread, 50007);
+    std::thread tEvent(eventServerThread, 50006);
+    std::thread tHeartbeat(heartbeatTask);
+    std::thread tPythonBridge(pythonBridgeThread, 50008);
 
     while (running) {
         // --- Update log window ---
@@ -259,6 +434,17 @@ int main() {
         if (ch != ERR) {
             if (ch == '\n') {
                 if (!inputStr.empty()) {
+                    if (inputStr.find("heartbeat ") == 0) {
+                        try {
+                            int newInterval = std::stoi(inputStr.substr(10));
+                            heartbeatInterval = newInterval;
+                            addLog("[System] Heartbeat interval set to " + std::to_string(newInterval) + "s");
+                        } catch (...) {
+                            addLog("[System] Invalid format. Use: heartbeat <seconds>");
+                        }
+                        inputStr.clear();
+                    }
+
                     if (commandClientSock >= 0) {
                         try {
                             auto pkt = GRAMS_TOF_CommandCodec::Packet();
@@ -277,6 +463,11 @@ int main() {
                                 // Remaining tokens are arguments
                                 for (size_t i = 1; i < tokens.size(); ++i) {
                                     args.push_back(std::stoi(tokens[i]));
+                                }
+
+                                {
+                                     std::lock_guard<std::mutex> lock(callbackMutex);
+                                     activeTargetCode = static_cast<uint16_t>(code);
                                 }
                                
                                 auto pkt = buildPacket(code, args);
@@ -313,6 +504,8 @@ int main() {
     running = false;
     tCommand.join();
     tEvent.join();
+    tHeartbeat.join();
+    tPythonBridge.join();
 
     delwin(logWin);
     delwin(inputWin);

@@ -54,7 +54,7 @@ static void write32(std::vector<uint8_t>& buf, uint32_t val) {
 
 bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& outPacket) {
     if (data.size() < 12) {
-        Logger::instance().error("[Codec] Packet too small: size={}", data.size());
+        Logger::instance().error("[CommandCodec] Packet too small: size={}", data.size());
         return false;
     }
 
@@ -62,7 +62,7 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
     uint16_t header1 = read16(ptr);
     uint16_t header2 = read16(ptr + 2);
     if (header1 != 0xEB90 || header2 != 0x5B6A) {
-        Logger::instance().error("[Codec] Invalid header {:04X} {:04X}", header1, header2);
+        Logger::instance().error("[CommandCodec] Invalid header {:04X} {:04X}", header1, header2);
         return false;
     }
 
@@ -73,27 +73,27 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
     static constexpr uint16_t MAX_ARGC = 0xFFFF;
 
     if (argc > MAX_ARGC) {
-        Logger::instance().error("[Codec] Invalid argc {} > MAX_ARGC {}", argc, MAX_ARGC);
+        Logger::instance().error("[CommandCodec] Invalid argc {} > MAX_ARGC {}", argc, MAX_ARGC);
         return false;
     }
 
     // Check for multiplication overflow: argc * 4 must not overflow size_t
     if (argc > (SIZE_MAX - 8) / 4) {
-        Logger::instance().error("[Codec] argc causes overflow in payloadSize calc");
+        Logger::instance().error("[CommandCodec] argc causes overflow in payloadSize calc");
         return false;
     }
 
     size_t payloadSize  = 8 + argc * 4;            // [Headers + code + argc + argv]
 
     if (payloadSize > SIZE_MAX - 6) {
-        Logger::instance().error("[Codec] payloadSize overflow");
+        Logger::instance().error("[CommandCodec] payloadSize overflow");
         return false;
     }
 
     size_t expectedSize = payloadSize + 2 + 2 + 2; // + CRC + Footer1 + Footer2
 
     if (data.size() < expectedSize) {
-        Logger::instance().error("[Codec] Packet too short for argc = {}", argc);
+        Logger::instance().error("[CommandCodec] Packet too short for argc = {}", argc);
         return false;
     }
 
@@ -102,18 +102,18 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
     uint16_t computedCRC = computeCRC16_CCITT_8408(ptr, payloadSize);
     //uint16_t computedCRC = computeCRC16_CCITT_1021(ptr, payloadSize);
     if (receivedCRC != computedCRC) {
-        Logger::instance().error("[Codec] CRC mismatch. Received 0x{:X}, Expected 0x{:X}", receivedCRC, computedCRC);
+        Logger::instance().error("[CommandCodec] CRC mismatch. Received 0x{:X}, Expected 0x{:X}", receivedCRC, computedCRC);
         return false;
     }
 
     uint16_t footer1 = read16(ptr + payloadSize + 2);
     uint16_t footer2 = read16(ptr + payloadSize + 4);
     if (footer1 != 0xC5A4 || footer2 != 0xD279) {
-        Logger::instance().error("[Codec] Invalid footer");
+        Logger::instance().error("[CommandCodec] Invalid footer");
         return false;
     }
         
-    Logger::instance().detail("[Parser] Parsed code = 0x{:X}, argc = {}", code, argc);
+    Logger::instance().detail("[CommandCodec] Parsed code = 0x{:X}, argc = {}", code, argc);
     //outPacket.code = static_cast<TOFCommandCode>(code);
     outPacket.code = code;
     outPacket.argc = argc;
@@ -125,7 +125,6 @@ bool GRAMS_TOF_CommandCodec::parse(const std::vector<uint8_t>& data, Packet& out
 
     return true;
 }
-
 
 std::vector<uint8_t> GRAMS_TOF_CommandCodec::serialize(const Packet& pkt, std::optional<uint16_t> fixedCrc) {
     std::vector<uint8_t> buf;
@@ -144,7 +143,7 @@ std::vector<uint8_t> GRAMS_TOF_CommandCodec::serialize(const Packet& pkt, std::o
     if (fixedCrc) {
         // --- CRITICAL FIX: Use the server's mandated success status CRC ---
         crc = fixedCrc.value(); 
-        Logger::instance().debug("[Codec] Using fixed CRC: {:04X}", crc);
+        Logger::instance().debug("[CommandCodec] Using fixed CRC: {:04X}", crc);
     } else {
         // Use the standard, mathematically correct CRC
         crc = computeCRC16_CCITT_8408(buf.data(), buf.size());

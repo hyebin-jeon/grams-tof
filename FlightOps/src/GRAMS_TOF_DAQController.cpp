@@ -32,15 +32,17 @@ void GRAMS_TOF_DAQController::setupSystemFiles() {
     try {
         GRAMS_TOF_Config::instance().setConfigFile(config_.configFile);
     } catch (const std::exception& e) {
-        Logger::instance().error("[System] Config load error: {}", e.what());
-        throw; // Re-throw to indicate fatal configuration error
+        throw GRAMS_TOF_RuntimeError(fmt::format("[DAQController] Fatal config load error: {}", e.what()));
     }
 }
 
 // Constructor Implementation
 GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
     : config_(config),
-      daq_("/tmp/d.sock", "/daqd_shm", 0, "GBE", {"/dev/psdaq0"}),
+      //daq_("/tmp/d.sock", "/daqd_shm", 0, "GBE", {"/dev/psdaq0"}),
+      daq_( ("/run/user/" + std::to_string(getuid()) + "/d.sock").c_str(), 
+            ("/daqd_shm_" + std::to_string(getuid())).c_str(), 
+            0, "GBE", {"/dev/psdaq0"}),
       pyint_(daq_),
       eventClient_(std::make_unique<GRAMS_TOF_EventClient>(
           config.remoteEventHub, 
@@ -55,7 +57,7 @@ GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
               this->handleIncomingCommand(pkt);
           }
       )),
-      dispatchTable_(pyint_, analyzer_, *eventClient_)
+      dispatchTable_(pyint_, analyzer_, *eventClient_, *this)
 {
     setupSystemFiles();
     setenv("DEBUG", "1", 1);
@@ -63,24 +65,24 @@ GRAMS_TOF_DAQController::GRAMS_TOF_DAQController(const Config& config)
 
 // Initialization Implementation (Hardware Setup)
 bool GRAMS_TOF_DAQController::initialize() {
-    Logger::instance().info("[System] Initializing DAQ with Config: IP={}, CP={}, EP={}, NoFPGA={}",
+    Logger::instance().info("[DAQController] Initializing DAQ with Config: IP={}, CP={}, EP={}, NoFPGA={}",
                             config_.remoteEventHub, config_.commandListenPort,
                             config_.eventTargetPort, config_.noFpgaMode);
 
     if (!config_.noFpgaMode) {
         if (!daq_.initialize()) {
-            Logger::instance().error("[System] DAQ initialization failed.");
+            Logger::instance().error("[DAQController] DAQ initialization failed.");
             return false;
         }
     } else {
-        Logger::instance().info("[System] Running in no-FPGA mode (DAQ init skipped)");
+        Logger::instance().info("[DAQController] Running in no-FPGA mode (DAQ init skipped)");
     }
 
     // Start network services
     eventClient_->start();
     commandClient_->start();
 
-    Logger::instance().info("[System] Waiting for Hub connection...");
+    Logger::instance().info("[DAQController] Waiting for Hub connection...");
 
     int retries = 0;
     const int max_retries = 50; // 5 seconds
@@ -89,7 +91,7 @@ bool GRAMS_TOF_DAQController::initialize() {
         bool commandReady = commandClient_->isConnected();
 
         if (eventReady && commandReady) {
-            Logger::instance().info("[System] All Hub connections established.");
+            Logger::instance().info("[DAQController] All Hub connections established.");
             break;
         }
 
@@ -98,11 +100,11 @@ bool GRAMS_TOF_DAQController::initialize() {
     }
 
     if (retries >= max_retries) {
-        Logger::instance().warn("[System] Startup synchronization timed out. Network may be degraded.");
+        Logger::instance().warn("[DAQController] Startup synchronization timed out. Network may be degraded.");
     }
 
-    Logger::instance().info("[System] Event service (CLIENT) sending to {}:{}", config_.remoteEventHub, config_.eventTargetPort);
-    Logger::instance().info("[System] Command service (SERVER) listening on port {}", config_.commandListenPort);
+    Logger::instance().info("[DAQController] Event service (CLIENT) sending to {}:{}", config_.remoteEventHub, config_.eventTargetPort);
+    Logger::instance().info("[DAQController] Command service (SERVER) listening on port {}", config_.commandListenPort);
 
     return true;
 }
@@ -114,27 +116,52 @@ void GRAMS_TOF_DAQController::handleIncomingCommand(const GRAMS_TOF_CommandCodec
 
     const auto& argv = pkt.argv;
     if (!dispatchTable_.dispatch(code, argv)) {
-        Logger::instance().error("[CommandClient] Command failed or unknown: 0x{:04X}", static_cast<int>(code));
+        Logger::instance().error("[DAQController] Command failed or unknown: 0x{:04X}", static_cast<int>(code));
     }
 }
 
 void GRAMS_TOF_DAQController::run() {
-    Logger::instance().info("[System] GRAMS_TOF_DAQController running...");
+    Logger::instance().info("[DAQController] GRAMS_TOF_DAQController running...");
 
     while (keepRunning_) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // 1. Check health of the Command Link
+
+        bool commandHealthy = commandClient_->isHealthy();
+        bool eventHealthy   = eventClient_->isHealthy();
+
+        //if (!commandClient_->isHealthy() || networkResetRequested_) {
+        if (!commandHealthy || !eventHealthy || networkResetRequested_) {
+            Logger::instance().warn("[DAQController] Command link health check failed (Heartbeat timeout). Resetting connections...");
+            
+            // 2. Stop both clients to clear FDs and threads
+            commandClient_->stop();
+            eventClient_->stop();
+
+            // 3. Optional: small delay to let the OS clean up the sockets
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+
+            // 4. Restart both clients
+            commandClient_->start();
+            eventClient_->start();
+
+            networkResetRequested_ = false;
+            Logger::instance().info("[DAQController] Re-connection sequence initiated.");
+        }
+
+        // Check health every 500ms to avoid high CPU usage
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    Logger::instance().info("[System] Finalizing network transmissions...");
+    Logger::instance().info("[DAQController] Finalizing network transmissions...");
     //std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     commandClient_->stop();
     eventClient_->stop();
 
-    Logger::instance().info("[System] GRAMS_TOF_DAQController exited run loop and shut down services.");
+    Logger::instance().info("[DAQController] GRAMS_TOF_DAQController exited run loop and shut down services.");
 }
 
 void GRAMS_TOF_DAQController::stop() {
-    Logger::instance().info("[System] Received STOP signal. Shutting down TOF DAQ...");
+    Logger::instance().info("[DAQController] Received STOP signal. Shutting down TOF DAQ...");
     keepRunning_ = false;
 }

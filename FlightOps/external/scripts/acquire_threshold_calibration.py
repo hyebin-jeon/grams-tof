@@ -10,6 +10,55 @@ import traceback
 import os
 import sys
 
+def load_bn_baselines(asicsConfig, baseline_file, config_file=None):
+    """
+    Reproduces BN results from the dumped .tsv file.
+    Injects baseline_t and baseline_e into the current ASIC configuration.
+    """
+    target_file = baseline_file
+
+    if not os.path.exists(target_file):
+        print(f"Target baseline file {target_file} not found in local vault.")
+        
+        candidates = []
+        
+        # 1. Check $GLIB/config (Installed config folder)
+        glib_dir = os.environ.get("GLIB", "")
+        if glib_dir:
+            candidates.append(os.path.join(glib_dir, "config", "disc_calibration_baseline.tsv"))
+
+        # 2. Check path relative to config_file
+        if config_file:
+            config_dir = os.path.dirname(os.path.abspath(config_file))
+            candidates.append(os.path.join(config_dir, "disc_calibration_baseline.tsv"))
+
+        found = False
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                print(f"Redirecting baseline tracking source to stable config link: {candidate}")
+                target_file = candidate
+                found = True
+                break
+
+        if not found:
+            print(f"CRITICAL ERROR: Could not locate 'disc_calibration_baseline.tsv' in: {candidates}")
+            return False
+
+    print(f"Loading previous BN results from {target_file}")
+    with open(target_file, "r") as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) < 6: continue
+            
+            p, s, c, ch = map(int, parts[:4])
+            bT, bE = map(int, parts[4:6])
+            
+            if (p, s, c) in asicsConfig:
+                cc = asicsConfig[(p, s, c)].channelConfig[ch]
+                cc.setValue("baseline_t", bT)
+                cc.setValue("baseline_e", bE)
+    return True
+
 def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, dark_reads=4, ext_bias=False, mode="all"):
     print("acquire_threshold_calibration:", config_file, out_file_prefix, noise_reads, dark_reads, ext_bias, "mode:", mode)
 
@@ -44,6 +93,13 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
         systemConfig.loadToHardware(conn, bias_enable=config.APPLY_BIAS_OFF if ext_bias else config.APPLY_BIAS_PREBD)
         
     asicsConfig = conn.getAsicsConfig()
+
+    # Load existing baselines if running Dark mode separately ---
+    baseline_filename = out_file_prefix + "_baseline.tsv"
+    if mode == "dark":
+        if not load_bn_baselines(asicsConfig, baseline_filename, config_file=config_file):
+            return False
+
     COUNT_MAX = 1.0 * (2**22)
     T = COUNT_MAX * (1 / conn.getSystemFrequency())
     
@@ -74,7 +130,7 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
             counter_sharing = 8
 
     # --- SECTION: BASELINE & NOISE ---
-    if mode in ["all", "baseline_noise", "dark"]:
+    if mode in ["all", "baseline_noise"]:
         print("Adjusting baseline")
         for thresholdIndex, thresholdName, baselineName in thresholdList:
             N_ITERATIONS = 0
@@ -103,13 +159,6 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
                 N_ITERATIONS += 1
                 if not adjustmentMade: break
 
-        # Generate baseline.tsv for all modes
-        if mode == "dark":
-            baseline_filename = out_file_prefix + "_baseline_tmp.tsv"
-            noise_filename = out_file_prefix + "_noise_tmp.tsv"
-        else:
-            baseline_filename = out_file_prefix + "_baseline.tsv" 
-            noise_filename = out_file_prefix + "_noise.tsv"
 
         outFile = open(baseline_filename, "w")
         for portID, slaveID, chipID, channelID in activeChannels:
@@ -119,6 +168,7 @@ def acquire_threshold_calibration(config_file, out_file_prefix, noise_reads=4, d
         outFile.close()
 
         print("Scanning threshold for noise")
+        noise_filename = out_file_prefix + "_noise.tsv"
         outFile = open(noise_filename, "w")
         for thresholdIndex, thresholdName, baselineName in thresholdList:
             stdout.write("%6s " % thresholdName); stdout.flush()

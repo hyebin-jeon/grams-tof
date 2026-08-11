@@ -14,20 +14,39 @@
 namespace fs = std::filesystem;
 
 // STAGE 0: GENERATE
-void generateDummyRoot(const std::string& filename) 
+void generateDummyRoot(const std::string& filename)
 {
     std::cout << "[Step 0] Generating Original ROOT file: " << filename << std::endl;
+
     TFile* f = new TFile(filename.c_str(), "RECREATE");
-    
+
+    // 1D Energy histogram
     TH1F* h1 = new TH1F("h_energy", "Energy Deposit", 100, 0, 100);
-    for(int i=0; i<1000; ++i) h1->Fill(gRandom->Gaus(50, 10));
-    
-    TH2F* h2 = new TH2F("h_hitmap", "Hit Map", 10, 0, 10, 10, 0, 10);
-    h2->Fill(5, 5, 100);
-    
-    TProfile* tp = new TProfile("p_timing", "Timing Profile", 50, 0, 50);
-    tp->Fill(10, 1.2); tp->Fill(10, 1.4); // Mean 1.3
-    
+    for(int i = 0; i < 1000; ++i)
+        h1->Fill(gRandom->Gaus(50, 10));
+
+    // 2D Hit Map (Gaussian cluster around center)
+    TH2F* h2 = new TH2F("h_hitmap", "Hit Map", 20, 0, 20, 20, 0, 20);
+    for(int i = 0; i < 5000; ++i)
+    {
+        double x = gRandom->Gaus(10, 3);
+        double y = gRandom->Gaus(10, 3);
+        h2->Fill(x, y);
+    }
+
+    // Timing Profile (linear trend with noise)
+    TProfile* tp = new TProfile("p_timing", "Timing Profile", 200, 0, 200);
+    for(int i = 0; i < 20000; ++i)
+    {
+        double x = gRandom->Uniform(0, 200);
+        double y_base = 0.01 * x; 
+        
+        double sigma = 0.0075 * x; 
+        double y = y_base + gRandom->Gaus(0, sigma);
+        
+        tp->Fill(x, y);
+    }
+
     f->Write();
     f->Close();
 }
@@ -91,15 +110,19 @@ void reconstructFromBinaries(const std::string& outputRoot)
 
 int main(int argc, char** argv) 
 {
-    if (argc < 2) {
-        std::cout << "Usage: ./final_test <mode>\nModes: 0 (Gen), 1 (Convert), 2 (Reconstruct)\n";
+    if (argc < 4) {
+        std::cout << "Usage: ./test_grams_tof_root <mode> <root_file> <sub>\n"
+                  << "Modes: 0 (Gen), 1 (Convert), 2 (Reconstruct)\n";
         return 1;
     }
 
     int mode = std::atoi(argv[1]);
-    if      (mode == 0) generateDummyRoot("run_2026-02-05_00-31-07.198Z.stg2.coin.root");
-    else if (mode == 1) convertRootToBinaries("run_2026-02-05_00-31-07.198Z.stg2.coin.root", 20260210);
-    else if (mode == 2) reconstructFromBinaries("run_2026-02-05_00-31-07.198Z.stg2.coin_recon.root");
+    const char* rootFile = argv[2];
+    int sub  = std::atoi(argv[3]);
+
+    if      (mode == 0) generateDummyRoot(rootFile);
+    else if (mode == 1) convertRootToBinaries(rootFile, sub);
+    else if (mode == 2) reconstructFromBinaries(rootFile);
     
     return 0;
 }
