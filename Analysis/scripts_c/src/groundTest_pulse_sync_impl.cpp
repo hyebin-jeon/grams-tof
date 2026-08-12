@@ -15,6 +15,7 @@
 #include <TOF_TreeDataStg2.h>
 #include <TOF_ChannelConversion.h>
 #include <TOF_Attributes.h>
+#include <TOF_PaddleChannelMap.h>
 
 
 #include <filesystem>
@@ -37,17 +38,41 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 		std::cerr<< "[ERR] Wrong Input File. Provide *.stg2.root" << std::endl;
 		return false;
 	}
+
   
 	/// Class setup
-  auto theChanConv = TOF_ChannelConversion::getInstance();
   auto theAttrib   = TOF_Attributes::getInstance();
+  auto theChanConv = TOF_ChannelConversion::getInstance();
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto thePaddle   = TOF_PaddleChannelMap::getInstance();
+
+	/// modify this depending on when the data were taken.
+	bool isOldData = true;
+
+	int febS_connID_A;
+	int febS_connID_B;
+	uint32_t chA;
+	uint32_t chB;
 
 	/// pulse channel
-	int febD_connID   = febD_connID_  <0? 1 : febD_connID_  ;
-	int febS_connID_A = febS_connID_A_<0? 77: febS_connID_A_; // from PPS
-	int febS_connID_B = febS_connID_B_<0? 35: febS_connID_B_; // from TPC
-  uint32_t chA = theChanConv->getAbsoluteChannelID( febD_connID, febS_connID_A );
-  uint32_t chB = theChanConv->getAbsoluteChannelID( febD_connID, febS_connID_B );
+	if(  isOldData == true ) {
+	  int febD_connID   = febD_connID_  <0? 1 : febD_connID_  ;
+	  febS_connID_A = febS_connID_A_<0? 77: febS_connID_A_; // from PPS
+	  febS_connID_B = febS_connID_B_<0? 35: febS_connID_B_; // from TPC
+    chA = theChanConv->getAbsoluteChannelID( febD_connID, febS_connID_A );
+    chB = theChanConv->getAbsoluteChannelID( febD_connID, febS_connID_B );
+	}
+	else {
+	  auto connIDs_A = thePaddle->getConnectorIDs_PPS();
+	  auto connIDs_B = thePaddle->getConnectorIDs_Trigger();
+	  int febD_connID_A = connIDs_A.first;
+	  int febD_connID_B = connIDs_B.first;
+	  
+		febS_connID_A = connIDs_A.second;
+	  febS_connID_B = connIDs_B.second;
+    chA = theChanConv->getAbsoluteChannelID( febD_connID_A, febS_connID_A );
+    chB = theChanConv->getAbsoluteChannelID( febD_connID_B, febS_connID_B );
+	}
 
 	/// output naming
 	TString name_file = (TString) name_root(0, name_root.Index( ".stg2.root" ));
@@ -97,22 +122,27 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 	TTimeStamp tmax( t_end.GetSec()+1, 0 );
 	int tBin = (tmax.GetSec() - tmin.GetSec())*10;
 	TH1D* hdT   = new TH1D("hdT", "dT (us)", 400, -1, 1 );
-	TH1D* hppsA = new TH1D(Form("hpps_ch%03d_J%03d", chA, febS_connID_A), Form("CPU_ch%03d_J%03d", chA, febS_connID_A), tBin, tmin, tmax );
-	TH1D* hppsB = new TH1D(Form("hpps_ch%03d_J%03d", chB, febS_connID_B), Form("CPU_ch%03d_J%03d", chB, febS_connID_B), tBin, tmin, tmax );
+	TH1D* hcpuA = new TH1D(Form("hcpu_ch%03d_J%03d", chA, febS_connID_A), Form("PPS_ch%03d_J%03d", chA, febS_connID_A), tBin, tmin, tmax ); // PPS
+	TH1D* hcpuB = new TH1D(Form("hcpu_ch%03d_J%03d", chB, febS_connID_B), Form("TRG_ch%03d_J%03d", chB, febS_connID_B), tBin, tmin, tmax ); // TRG
 
 	hdT->GetXaxis()->SetTitle( Form("t (J%03d) - t_ref (J%03d)", febS_connID_B, febS_connID_A) );
-	hppsA->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
-	hppsB->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
-	hppsA->GetYaxis()->SetTitle("Events");
-	hppsB->GetYaxis()->SetTitle("Events");
-	//hppsA->GetYaxis()->SetTitle("Event rate (Hz)");
-	//hppsB->GetYaxis()->SetTitle("Event rate (Hz)");
+	hcpuA->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
+	hcpuB->GetXaxis()->SetTitle("CPU time, 0.1 sec/bin");
+	hcpuA->GetYaxis()->SetTitle("Events");
+	hcpuB->GetYaxis()->SetTitle("Events");
+	//hcpuA->GetYaxis()->SetTitle("Event rate (Hz)");
+	//hcpuB->GetYaxis()->SetTitle("Event rate (Hz)");
+	
+	TGraph* gPPS= new TGraph(); 
+	gPPS->SetNameTitle("gPPS", ";PPS counts;");
+	theAttrib->attribGraph( gPPS );
+	gPPS->SetMarkerSize( 0.5 );
 
 	UInt_t hour, min, second;
 	for( int i=0; i<vTimeA.size(); i++ )
 	{
 		auto timeA = vTimeA.at(i);
-		hppsA->Fill( timeA.AsDouble() );
+		hcpuA->Fill( timeA.AsDouble() );
 	
 		if( i==0 ) continue;
 		auto tdiff = vTimeA.at(i) - vTimeA.at(i-1);
@@ -124,33 +154,47 @@ bool runGroundTestPulseSync( const std::string& inputFile,
 		auto mili = nano/1E6;
 
 		//if( tdiff < 0.5 ) 
-			std::cout << Form("[No.%04d]", i) << " tdiff (ms): " << Form("%3.0f",tdiff_ms) << Form(", time1: %02u:%02u:%02u.%03.0f %09u",  hour, min, second, mili, nano) << endl; 
+		std::cout << Form("[No.%04d]", i) << " tdiff (ms): " << Form("%3.0f",tdiff_ms) << Form(", time1: %02u:%02u:%02u.%03.0f %09u",  hour, min, second, mili, nano) << endl; 
 
+		gPPS->AddPoint( i, timeA.AsDouble() );
 	}
 	for( int i=0; i<vTimeB.size(); i++ )
 	{
 		auto timeB = vTimeB.at(i);
-		hppsB->Fill( timeB.AsDouble() );
+		hcpuB->Fill( timeB.AsDouble() );
 	}
 	
-	hppsA->GetXaxis()->SetTimeDisplay(1);
-	hppsA->GetXaxis()->SetTimeFormat("%H:%M:%S");
-	hppsA->GetXaxis()->SetTimeOffset(0,"gmt");
-	hppsB->GetXaxis()->SetTimeDisplay(1);
-	hppsB->GetXaxis()->SetTimeFormat("%H:%M:%S");
-	hppsB->GetXaxis()->SetTimeOffset(0,"gmt");
+	hcpuA->GetXaxis()->SetTimeDisplay(1);
+	hcpuA->GetXaxis()->SetTimeFormat("%H:%M:%S");
+	hcpuA->GetXaxis()->SetTimeOffset(0,"gmt");
+	hcpuB->GetXaxis()->SetTimeDisplay(1);
+	hcpuB->GetXaxis()->SetTimeFormat("%H:%M:%S");
+	hcpuB->GetXaxis()->SetTimeOffset(0,"gmt");
+	
+	TCanvas* c0 = new TCanvas("c1", "c1");
+	c0->Print( Form("%s[", pdfName.Data()) ); // open
+	c0->cd();
+	gPad->SetLeftMargin(0.18);
+	gPPS->Draw("apl");
+	gPPS->GetYaxis()->SetTitleOffset( 0.2 );
+	gPPS->GetYaxis()->SetTimeDisplay(1);
+	gPPS->GetYaxis()->SetTimeFormat ("%m/%d %H:%M:%S");
+	gPPS->GetYaxis()->SetTimeOffset(0, "gmt" );
+	gPad->Modified();
+	gPad->Update();
+	c0->Print( pdfName.Data() );
+	c0->Close();
 
 	TCanvas* c1 = new TCanvas("c1", "c1");
-	c1->Print( Form("%s[", pdfName.Data()) ); // open
 	c1->cd();
-	hppsA->Draw();
-	hppsA->GetXaxis()->SetNdivisions( 1010 );
+	hcpuA->Draw();
+	hcpuA->GetXaxis()->SetNdivisions( 1010 );
 	gPad->Modified();
 	gPad->Update();
 	gPad->SetLogy();
 	c1->Print( pdfName.Data() );
-	hppsB->Draw();
-	hppsB->GetXaxis()->SetNdivisions( 1010 );
+	hcpuB->Draw();
+	hcpuB->GetXaxis()->SetNdivisions( 1010 );
 	gPad->Modified();
 	gPad->Update();
 	gPad->SetLogy();
