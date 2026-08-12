@@ -181,7 +181,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
                 continue; 
             }
 
-            Logger::instance().info("[DAQManager] Accepted incoming data pipeline connection: client_fd={}, server_fd={}", new_fd, fd_in_event);
+            Logger::instance().detail("[DAQManager] Accepted incoming data pipeline connection: client_fd={}, server_fd={}", new_fd, fd_in_event);
 
             event.data.fd = new_fd;
             event.events = EPOLLIN | EPOLLERR | EPOLLHUP;
@@ -202,7 +202,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
 
             // New: Check for errors/hang-ups first
             if ((event.events & EPOLLHUP) || (event.events & EPOLLERR)) {
-                 Logger::instance().warn("[DAQManager] Pipeline partner disconnected or dropped on client_fd={}", fd_in_event);
+                 Logger::instance().detail("[DAQManager] Pipeline partner disconnected or dropped on client_fd={}", fd_in_event);
                  goto client_cleanup;
             }
 
@@ -218,7 +218,7 @@ void GRAMS_TOF_DAQManager::pollSocket() {
 
         // New Cleanup Block
         client_cleanup:
-            Logger::instance().info("[DAQManager] Closing and unregistering client_fd={}", fd_in_event);
+            Logger::instance().detail("[DAQManager] Closing and unregistering client_fd={}", fd_in_event);
             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd_in_event, nullptr);
             // Client destructor (called on erase) handles closing the socket
             clientList.erase(it);

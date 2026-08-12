@@ -20,11 +20,12 @@ namespace LogColor {
     constexpr auto GRAY    = "\033[90m";
     constexpr auto WHITE   = "\033[97m"; 
     constexpr auto CYAN    = "\033[36m";   
+    constexpr auto MAGENTA = "\033[35m";
 }
 
 class Logger {
 public:
-    enum class Level { Detail = 0, Debug = 1, Info = 2, Warning = 3, Error = 4 };
+    enum class Level { Detail = 0, Debug = 1, Info = 2, Warning = 3, Error = 4, Critical = 5 };
 
     static Logger& instance() {
         static Logger inst;
@@ -151,6 +152,16 @@ public:
         log(Level::Detail, fmt, std::forward<Args>(args)...);
     }
 
+    template<typename... Args>
+    void critical(const std::string& comp, const std::string& fmt, Args&&... args) {
+        log_comp(Level::Critical, comp, fmt, std::forward<Args>(args)...);
+    }
+    
+    template<typename... Args>
+    void critical(const std::string& fmt, Args&&... args) {
+        log(Level::Critical, fmt, std::forward<Args>(args)...);
+    }
+
 private:
     Logger() = default;
 
@@ -166,22 +177,24 @@ private:
     const char* getColor(Level level) const {
         using namespace LogColor;
         switch (level) {
-            case Level::Info:    return WHITE;
-            case Level::Warning: return YELLOW;
-            case Level::Error:   return RED;
-            case Level::Debug:   return GREEN;
-            case Level::Detail:  return CYAN;
+            case Level::Critical: return MAGENTA;
+            case Level::Info:     return WHITE;
+            case Level::Warning:  return YELLOW;
+            case Level::Error:    return RED;
+            case Level::Debug:    return GREEN;
+            case Level::Detail:   return CYAN;
         }
         return RESET;
     }
 
     const char* getLabel(Level level) const {
         switch (level) {
-            case Level::Info:    return "INFO";
-            case Level::Warning: return "WARN";
-            case Level::Error:   return "ERR "; 
-            case Level::Debug:   return "DBG ";
-            case Level::Detail:  return "DTL ";
+            case Level::Critical: return "CRIT";
+            case Level::Info:     return "INFO";
+            case Level::Warning:  return "WARN";
+            case Level::Error:    return "ERR "; 
+            case Level::Debug:    return "DBG ";
+            case Level::Detail:   return "DTL ";
         }
         return "LOG";
     }
