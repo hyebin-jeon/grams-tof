@@ -10,7 +10,7 @@ class TOF_CoincidenceChannelInfo : public TObject
 		~TOF_CoincidenceChannelInfo();
 	public:
 	TTimeStamp      ts_cpu;
-	TTimeStamp      ts_pps;
+	//TTimeStamp      ts_pps;
 	long long       frameID;
   //unsigned int    channelID;
   uint32_t        channelID;

@@ -50,7 +50,7 @@ int TOF_ConvertStg1toStg2::addBranches()
 	long long initialT= CLOCKS_IN_A_FRAME * frameID0 + fStg1->getTCoarse(); 	
 	TTimeStamp ts_cpu0 = fStg1->getTimestampCPU();
 	TTimeStamp ts_cpu = ts_cpu0;
-	TTimeStamp ts_pps = ts_cpu0;
+	//TTimeStamp ts_pps = ts_cpu0;
 
 	fStg2->makeBranches();
 
@@ -105,7 +105,7 @@ int TOF_ConvertStg1toStg2::addBranches()
 		ts_cpu.SetSec( cpuSec );
 		ts_cpu.SetNanoSec( cpuNsec );
 
-		ts_pps = ts_cpu; // temporary dummy
+		//ts_pps = ts_cpu; // temporary dummy
 
 		fStg2->setStep1        ( step1     );
     fStg2->setStep2        ( step2     );
@@ -124,7 +124,7 @@ int TOF_ConvertStg1toStg2::addBranches()
     fStg2->setCalibratedTdc( tdc_cal   );
     fStg2->setCalibratedQdc( qdc_cal   );
 		fStg2->setTimeStampCPU ( &ts_cpu   );
-		fStg2->setTimeStampPPS ( &ts_pps   );
+		//fStg2->setTimeStampPPS ( &ts_pps   );
 
 		fStg2->fillTTree(); 
 	}
