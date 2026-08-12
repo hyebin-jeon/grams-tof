@@ -62,6 +62,10 @@ class TOF_PaddleChannelMap : public TObject
 		bool isPpsChannel    ( uint16_t paddleIdx );
 		bool isTestPaddle    ( uint16_t paddleIdx );
 		
+	public:
+		std::pair<uint8_t, uint8_t> getConnectorIDs_Trigger();
+		std::pair<uint8_t, uint8_t> getConnectorIDs_PPS();
+		
 		void dump();
 	  
 		ClassDef(TOF_PaddleChannelMap, 1)

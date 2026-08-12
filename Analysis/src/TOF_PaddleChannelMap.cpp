@@ -448,6 +448,35 @@ bool TOF_PaddleChannelMap::isTestPaddle( uint16_t paddleIdx )
 	return rval;
 }
 
+std::pair<uint8_t, uint8_t> TOF_PaddleChannelMap::getConnectorIDs_Trigger()
+{
+	auto paddleIdx = getPaddleIdx( eSystem::fTrig, 0, eCoordinate::fDummy ); 
+	 //auto getPaddleIdx( eSystem::fPPS, 0, eCoordinate::fDummy )
+
+	auto connIDs = fMap_PaddleIdxToConnIDs[ paddleIdx ];
+
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeConn_FebD = theAsicList->getActiveConnIdOnFebD();
+
+	uint8_t connID_D = activeConn_FebD[ connIDs.first ];
+	uint8_t connID_S = connIDs.second;
+	return std::make_pair( connID_D, connID_S );
+}
+std::pair<uint8_t, uint8_t> TOF_PaddleChannelMap::getConnectorIDs_PPS()
+{
+	auto paddleIdx =  getPaddleIdx( eSystem::fPPS, 0, eCoordinate::fDummy );
+	
+	auto connIDs = fMap_PaddleIdxToConnIDs[ paddleIdx ];
+
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeConn_FebD = theAsicList->getActiveConnIdOnFebD();
+
+	uint8_t connID_D = activeConn_FebD[ connIDs.first ];
+	uint8_t connID_S = connIDs.second;
+
+	return std::make_pair( connID_D, connID_S );
+}
+
 void TOF_PaddleChannelMap::dump()
 {
 	std::cout << "fMap_ConnIdToPaddleIdx.size() = " << fMap_ConnIdToPaddleIdx.size() << std::endl;
