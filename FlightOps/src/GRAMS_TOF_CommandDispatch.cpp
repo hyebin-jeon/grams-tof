@@ -729,7 +729,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::READ_TEMPERATURE_SENSORS,
                 TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN,
                 TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION,
-                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE
+                TOFCommandCode::MAKE_SIMPLE_DISC_SET_TABLE,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE
             });
             macroLoopRunning_ = false;
             sendStatusCallback(TOFCommandCode::MACRO_STAGE0_PREBREAKDOWN_BN, success ? 0 : 1);
@@ -754,7 +755,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::RESET_DAQ,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
                 TOFCommandCode::ACQUIRE_TDC_CALIBRATION,
-                TOFCommandCode::PROCESS_TDC_CALIBRATION
+                TOFCommandCode::PROCESS_TDC_CALIBRATION,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE
             });
             macroLoopRunning_ = false;
             sendStatusCallback(TOFCommandCode::MACRO_STAGE1_UNBIASED_TDC, success ? 0 : 1);
@@ -779,7 +781,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::RESET_DAQ,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
                 TOFCommandCode::ACQUIRE_QDC_CALIBRATION,
-                TOFCommandCode::PROCESS_QDC_CALIBRATION
+                TOFCommandCode::PROCESS_QDC_CALIBRATION,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE
             });
             macroLoopRunning_ = false;
             sendStatusCallback(TOFCommandCode::MACRO_STAGE2_PREBREAKDOWN_QDC, success ? 0 : 1);
@@ -795,6 +798,13 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             sendStatusCallback(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D, 1);
             return false;
         }
+
+        if (argv.size() > 0) {
+            double customDuration = static_cast<double>(argv[0]);
+            sipmDataAcquisitionTime_.store(customDuration);
+        }
+        Logger::instance().info("[CommandDispatch] Loop configured with SiPM duration: {} seconds", sipmDataAcquisitionTime_.load());
+
         if (macroLoopThread_.joinable()) {
             macroLoopThread_.join();
         }
@@ -804,7 +814,10 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             bool success = this->executeMacroSequence("Stage3_Operational_D", "stage3_operational_d", {
                 TOFCommandCode::RESET_DAQ,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
-                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D
+                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::CONVERT_RAW_TO_RAW,
+                TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE
             });
             macroLoopRunning_ = false;
             sendStatusCallback(TOFCommandCode::MACRO_STAGE3_OPERATIONAL_D, success ? 0 : 1);
