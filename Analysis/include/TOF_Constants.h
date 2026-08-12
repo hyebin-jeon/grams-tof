@@ -1,5 +1,12 @@
+//#include <stdint.h>
+#include <cstdint>
+//#include <format>
+
 #pragma once
 
+#define TOF_GOOD 1
+#define TOF_WARNING -1
+#define TOF_ERR -2
 
 #define CLOCKS_IN_A_FRAME 1024
 
@@ -22,12 +29,40 @@ enum class TOF_Discriminator {
   fDiscT2 = 2,
   fDiscE  = 3,
 };
+		
+enum eSystem : uint16_t {
+	fUTOF = 0,
+	fMTOF = 1,
+	fMPD  = 2,
+	fTrig = 3,
+	fPPS  = 4,
+	fTest = 5,
+};
+
+enum eCoordinate : uint16_t {
+	fBiasSide = 0, 
+	fDaqSide  = 1,
+	fAsicSide = 2,
+	fCleanSide= 3, // perhaps this will be the DC/DC side
+	fDummy    = 4,
+};
 
 const double fTOF_TdcClkFreq = 200E6; // 200 MHz
 const double fTOF_TdcClkPer = 1./fTOF_TdcClkFreq; // period in sec
 const double fTOF_TdcClkPerNs = fTOF_TdcClkPer * 1E9; // period in nsec
 
-#define TOF_GOOD 1
-#define TOF_WARNING -1
-#define TOF_ERR -2
+/// number of channels, paddles
+const int fTOF_NbChannelsPerAsic{ 64};
+const int fTOF_NbChannelsPerFebS{128};
+const int fTOF_NbChannelsAll    {202}; // 200 sipm channels + 1 pps + 1 tpc trg
+const int fTTOF_NbPaddles       { 24};
+const int fMTOF_NbPaddles       { 16};
+const int fMPD_NbPaddles        { 20};
+const int fTTOF_NbChannelsPerEnd {  1};
+const int fMTOF_NbChannelsPerEnd {  1};
+const int fMPD_NbChannelsPerEnd  {  3};
+const int fTTOF_NbChannels      { fTTOF_NbPaddles*fTTOF_NbChannelsPerEnd};
+const int fMTOF_NbChannels      { fMTOF_NbPaddles*fMTOF_NbChannelsPerEnd};
+const int fMPD_NbChannels       { fMPD_NbPaddles *fMPD_NbChannelsPerEnd };
+const int fNbOfFebS{1};
 

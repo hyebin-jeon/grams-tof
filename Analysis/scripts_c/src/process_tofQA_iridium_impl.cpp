@@ -8,6 +8,7 @@
 #include <TOF_Constants.h>
 #include <TOF_Attributes.h>
 #include <TOF_ChannelConversion.h>
+#include <TOF_PaddleChannelMap.h>
 #include <TOF_TreeDataStg2.h>
 
 bool runTofQA_Iridium( const std::string& inputFile,
@@ -24,14 +25,18 @@ bool runTofQA_Iridium( const std::string& inputFile,
 
 	/// channel conversion class
 	auto theChanConv = TOF_ChannelConversion::getInstance();
-	if( theChanConv->readActiveAsicList(asicListFile.c_str())!= TOF_GOOD ) return false;
-	auto activeConnIds_D = theChanConv->getActiveConnIdOnFebD();
+	auto thePaddle   = TOF_PaddleChannelMap::getInstance();
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	//theAsicList->readActiveAsicList();
+	auto activeConnIds_D = theAsicList->getActiveConnIdOnFebD();
 	
-	const int nb = 2;
+	const int nconn = fNbOfFebS; //2; // number of connected FEB-S
+	const int nsyst  = 2; // number of system TTOF, MTOF, MPD
+	const int npad[3] = { fTTOF_NbChannels, fMTOF_NbChannels }; //, fMPD_NbChannels };
 
-	if( activeConnIds_D.size() != nb ) {
-		std::cerr << "[WARN] Number of Active Asic ConnectorID List != 2" << std::endl;
-	}
+	//if( activeConnIds_D.size() != nconn ) {
+	//	std::cerr << "[WARN] Number of Active Asic ConnectorID List != 2" << std::endl;
+	//}
 
 	/// input stg2
 	TOF_TreeDataStg2* stg2 = new TOF_TreeDataStg2();
@@ -52,21 +57,22 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	int tmax = dur%binW==0? t_end.GetSec() : t_end.GetSec()+ binW;
 
 	const double runTimeSec = (t_end.GetSec() + (double)t_end.GetNanoSec()*1E-9) - (t_begin.GetSec() + (double)t_begin.GetNanoSec()*1E-9);;
+	std::cout << Form("[INFO] Run Duration: %10.2f (sec) = %9.2f (min) = %8.2f (hours)", runTimeSec, runTimeSec/60., runTimeSec/3600.) << std::endl;
 
 	/// histograms
 	int timeRange = tmax - tmin;
 	int timeBinNb  = timeRange%10? timeRange/10+1 : timeRange/10;
-	TH1F* hEvtChan[nb];
-	TH1F* hEvtTime[nb];
-	for( int i=0; i<nb; i++ )
+	TH1F* hEvtPaddle [nconn];
+	TH1F* hEvtCPUTime[nconn];
+	for( int i=0; i<nconn; i++ )
 	{
-	  hEvtChan[i] = new TH1F(Form("hEvtChan%d",i), Form("Channel vs. Event rate (FebD_%02d)", activeConnIds_D[i]), 128, 1, 129 );
-	  hEvtTime[i] = new TH1F(Form("hEvtTime%d",i), Form("CPU time vs. Event rate (FebD_%02d)", activeConnIds_D[i]), timeBinNb, tmin, tmax); // 1800 sec = 40 min, 1 bin per 10 sec
+	  hEvtPaddle[i] = new TH1F(Form("hEvtPaddle%d",i), Form("PaddleID vs. Event rate (FebD_%02d)", activeConnIds_D[i]), 120, -10, 50 );
+		hEvtPaddle[i]->GetXaxis()->SetTitle("Paddle ID (NS)");
+		hEvtPaddle[i]->GetYaxis()->SetTitle("Event rate (Hz)");
 
-		hEvtChan[i]->GetXaxis()->SetTitle("connector ID on FEB-S");
-		hEvtTime[i]->GetXaxis()->SetTitle("CPU time (UTC), 10 sec/bin");
-		hEvtChan[i]->GetYaxis()->SetTitle("Event rate (Hz)");
-		hEvtTime[i]->GetYaxis()->SetTitle("Event rate (Hz)");
+	  hEvtCPUTime[i] = new TH1F(Form("hEvtCPUTime%d",i), Form("CPU time vs. Event rate (FebD_%02d)", activeConnIds_D[i]), timeBinNb, tmin, tmax); // 1800 sec = 40 min, 1 bin per 10 sec
+		hEvtCPUTime[i]->GetXaxis()->SetTitle("CPU time (UTC), 10 sec/bin");
+		hEvtCPUTime[i]->GetYaxis()->SetTitle("Event rate (Hz)");
 	}
 
 	/// fill the histo
@@ -74,20 +80,37 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	{
 		stg2->getEntry(i);
 
-		auto ts_pps   = stg2->getTimeStampPPS();
+		//auto ts_pps   = stg2->getTimeStampPPS();
+		auto ts_cpu   = stg2->getTimeStampCPU();
 		auto connID_D = stg2->getConnID_FebD();
 		auto connID_S = stg2->getConnID_FebS();
+		auto paddleIdx = stg2->getPaddleIdx();
+		
+		int febS_idx= thePaddle->getFebSIdx( connID_D );
+		if( febS_idx<0 ) continue;
 
-		for( int j=0; j<nb; j++ )
-		{
-		  if( connID_D != activeConnIds_D[j] ) continue;
-			
-			hEvtChan[j]->Fill( connID_S, 1./ runTimeSec );
-			//hEvtChan[j]->Fill( connID_S );
-			hEvtTime[j]->Fill( ts_pps.AsDouble(), 1./(double)binW );
-		}
+		int systIdx   = (int) thePaddle->getSystemIdx  ( paddleIdx );
+		int paddLocID = (int) thePaddle->getPaddleLocId( paddleIdx );
+		int sipmLocID = (int) thePaddle->getSipmLocId  ( paddleIdx );
+
+		double syst_offset = systIdx * 30.;
+		double sipmLocID_d = (sipmLocID%2)* 0.5;
+		double paddle_bin = syst_offset + paddLocID + sipmLocID_d;
+
+		/// exceptioanl cases
+		/// trigger channel --> paddle_bin = -3
+		/// pps     channel --> paddle_bin = -4
+		/// test paddles    --> paddle_bin = -5 and -5.5 for the test paddle on UTOF, -6 and -6.5 for the test paddle on MTOF
+		if     ( thePaddle->isTriggerChannel( paddleIdx )==true ) paddle_bin = -1*systIdx;
+		else if( thePaddle->isPpsChannel    ( paddleIdx )==true ) paddle_bin = -1*systIdx;
+		else if( thePaddle->isTestPaddle    ( paddleIdx )==true ) paddle_bin = -1*(systIdx + paddLocID + (sipmLocID%2)*0.5);
+
+		//if( paddle_bin<0 )
+		//	std::cout << Form("connID_D: %3u, connID_S: %03u, paddle Idx: 0x%04X --> system: %u, paddle locID: %2u, sipm locID: %u --> paddle_bin = %2.1f", connID_D, connID_S, paddleIdx, systIdx, paddLocID, sipmLocID, paddle_bin) << std::endl;
+
+		hEvtPaddle [febS_idx]->Fill( paddle_bin, 1./ runTimeSec );
+		if( paddle_bin>0 ) hEvtCPUTime[febS_idx]->Fill( ts_cpu.AsDouble(), 1./(double)binW );
 	}
-
 
 	/// output file naming
 	std::string fin_root = stg2->getFileName();
@@ -105,27 +128,51 @@ bool runTofQA_Iridium( const std::string& inputFile,
 
 	TCanvas* canv0 = new TCanvas("canv0", "canv0"); //, 1100, 500);
 	canv0->Print( Form("%s[", fout_pdf) ); // open 
-	canv0->Divide(nb,2,0.005,0.005);
+	canv0->Divide(nconn,2,0.005,0.005);
+
+	TText txt;
+	txt.SetTextColorAlpha( kBlack, 0.5 );
+	txt.SetTextSize(0.1);
+	txt.SetTextAlign(11); // left bottom
+	TText txt_angled;
+	txt_angled.SetTextColorAlpha( kBlack, 0.5 );
+	txt_angled.SetTextSize(0.05);
+	txt_angled.SetTextAlign(31); // left bottom
+	txt_angled.SetTextAngle(270);
 
 	gStyle->SetOptStat(111111);
-	for( int j=0; j<nb; j++ )
+	for( int j=0; j<nconn; j++ )
 	{
 	  /// scale the histo to make y axis = event rate
-		//hEvtChan[j]->Scale( 1./(double) runTimeSec );
+		//hEvtPaddle[j]->Scale( 1./(double) runTimeSec );
 
-		theAttrib->attribHist( hEvtChan[j] );
-		theAttrib->attribHist( hEvtTime[j] );
-		hEvtTime[j]->GetXaxis()->SetTimeDisplay(1);
-	  hEvtTime[j]->GetXaxis()->SetTimeFormat ("%m/%d %H:%M");
-	  hEvtTime[j]->GetXaxis()->SetTimeOffset(0, "gmt");
+		theAttrib->attribHist( hEvtPaddle[j] );
+		theAttrib->attribHist( hEvtCPUTime[j] );
+		hEvtCPUTime[j]->GetXaxis()->SetTimeDisplay(1);
+	  hEvtCPUTime[j]->GetXaxis()->SetTimeFormat ("%m/%d %H:%M");
+	  hEvtCPUTime[j]->GetXaxis()->SetTimeOffset(0, "gmt");
 
-	  canv0->cd(j+1);
-	  hEvtChan[j]->Draw("hist");
-	  canv0->cd(j+3);
-	  hEvtTime[j]->Draw("hist");
+	  canv0->cd(j*2+1);
+	  hEvtPaddle[j]->Draw("hist");
+	  hEvtPaddle[j]->GetXaxis()->SetNdivisions( 520 );
+		txt.DrawText(  1, 0, "UTOF" ); 
+		txt.DrawText( 31, 0, "MTOF" ); 
+		txt_angled.DrawText( -3, 0, "TRG" );
+		txt_angled.DrawText( -4, 0, "PPS" );
+		txt_angled.DrawText( -5.5, 0, "Spare on UTOF" );
+		txt_angled.DrawText( -6.5, 0, "Spare on MTOF" );
+		
+	  canv0->cd(j*2+2);
+	  hEvtCPUTime[j]->Draw("hist");
 
-		hEvtChan[j]->Write();
-		hEvtTime[j]->Write();
+		gPad->Modified();
+		gPad->Update();
+		auto stat = (TPaveStats *) gPad->GetPrimitive("stats");
+		theAttrib->moveStatBoxNDC( stat, 0.75, 0.15, 0.95, 0.40 );
+		
+
+		hEvtPaddle[j]->Write();
+		hEvtCPUTime[j]->Write();
 	}
 
 	canv0->Print( fout_pdf );

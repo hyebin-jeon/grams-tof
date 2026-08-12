@@ -62,18 +62,18 @@ int TOF_DiscriminatorCalibration::readCalib( const char *fname )
       continue;
     }
     if ( finQ.eof() ) break;
-    finQ >> slaveID >> chipID >> channelID >> bT >> bE >> zT1 >> zT2 >> zE >> nT1 >> nT2 >> nE;
-    //    std::cout << Form( "%u %u", chipID, channelID ) << std::endl;
-    fBaseline[chipID][channelID][fbranchT] = bT;
-    fBaseline[chipID][channelID][fbranchE] = bE;
+    finQ >> portID >> slaveID >> chipID >> channelID >> bT >> bE >> zT1 >> zT2 >> zE >> nT1 >> nT2 >> nE;
+    std::cout << Form( "%u %u %u %f %f %f %f %f", portID, chipID, channelID, bT, bE, zT1, zT2, zE ) << std::endl;
+    fBaseline[chipID][channelID][(int)fbranchT] = bT;
+    fBaseline[chipID][channelID][(int)fbranchE] = bE;
 
-    fZero[chipID][channelID][fDiscrT1] = zT1;
-    fZero[chipID][channelID][fDiscrT2] = zT2;
-    fZero[chipID][channelID][fDiscrE]  = zE ;
+    fZero[chipID][channelID][(int)fDiscrT1] = zT1;
+    fZero[chipID][channelID][(int)fDiscrT2] = zT2;
+    fZero[chipID][channelID][(int)fDiscrE]  = zE ;
 
-    fNoise[chipID][channelID][fDiscrT1] = nT1;
-    fNoise[chipID][channelID][fDiscrT2] = nT2;
-    fNoise[chipID][channelID][fDiscrE]  = nE ;
+    fNoise[chipID][channelID][(int)fDiscrT1] = nT1;
+    fNoise[chipID][channelID][(int)fDiscrT2] = nT2;
+    fNoise[chipID][channelID][(int)fDiscrE]  = nE ;
 
 		//std::cout << Form("chip: %02d, channel: %02d, BL_T: %2.1f, BL_E: %2.1f, zero_t1: %2.1f, zero_t2: %2.1f, zero_e: %2.1f, noise_t1: %2.1f, noise_t2: %2.1f, noise_e: %2.1f", chipID, channelID, bT, bE, zT1, zT2, zE, nT1, nT2, nE) << std::endl;
 		ndata++;
@@ -127,9 +127,12 @@ std::vector<double> TOF_DiscriminatorCalibration::getDiscrParams( uint32_t absCh
 	auto chipID    = (TOF_ChannelConversion::getInstance())->getAsicID   ( absChannelID );
 	auto channelID = (TOF_ChannelConversion::getInstance())->getChannelID( absChannelID );
 
+	std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> disc = " << (int) disc << std::endl;
+
 	int brIdx(-99);
 	if( disc== TOF_Discriminator::fDiscT1 || disc == TOF_Discriminator::fDiscT2 ) brIdx = (int) TOF_Branch::fBranchT;
 	if( disc == TOF_Discriminator::fDiscE ) brIdx = (int) TOF_Branch::fBranchE;
+	std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> br = " << (int) brIdx << std::endl;
 
 	int dIdx = (int) disc;
 

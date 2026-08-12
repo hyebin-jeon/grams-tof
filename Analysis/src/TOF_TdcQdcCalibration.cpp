@@ -1,6 +1,7 @@
 
 //#include <fstream>
 #include "TOF_TdcQdcCalibration.h"
+#include <TSystem.h>
 
 ClassImp( TOF_TdcQdcCalibration );
 
@@ -68,13 +69,22 @@ double TOF_TdcQdcCalibration::getA2( uint8_t chipID, uint32_t channelID, uint8_t
 	return -99;
 };
 
-int TOF_TdcQdcCalibration::readTdcCalib( const char *fname )
+int TOF_TdcQdcCalibration::readTdcCalib( std::string fname )
 {
-  std::ifstream finT( fname );
+  TString tdcPath = fname;
+  TString glibDir = gSystem->Getenv("GLIB");
+
+  if (tdcPath.IsWhitespace()) {
+    tdcPath = Form("%s/config/tdc_calibration.tsv", glibDir.Data());
+  }
+	printf("[INFO] Load TDC calibration: %s\n", tdcPath.Data());
+
+  std::ifstream finT( tdcPath.Data() );
 	if( ! finT.is_open() ) {
-		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
+		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", tdcPath.Data() ) << std::endl;
 		return TOF_ERR;
 	}
+  
   unsigned short portID, slaveID, chipID, channelID, tacID;
   char branch;
   double t0, a0, a1, a2;
@@ -105,16 +115,25 @@ int TOF_TdcQdcCalibration::readTdcCalib( const char *fname )
 		//std::cout << "[TDC calib] T0: " << t0 << std::endl;
     ndata++;
   } while( 1 );
-  std::cout << Form( "TDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
+  //std::cout << Form( "TDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
 
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readQdcCalib( const char *fname )
+int TOF_TdcQdcCalibration::readQdcCalib( std::string fname )
 {
-  std::ifstream finQ( fname );
+  TString qdcPath = fname;
+  TString glibDir = gSystem->Getenv("GLIB");
+  
+	if (qdcPath.IsWhitespace()) {
+    qdcPath = Form("%s/config/qdc_calibration.tsv", glibDir.Data());
+  }
+
+  printf("[INFO] Load QDC calibration: %s\n", qdcPath.Data());
+
+  std::ifstream finQ( qdcPath.Data() );
 	if( ! finQ.is_open() ) {
-		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
+		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", qdcPath.Data() ) << std::endl;
 		return TOF_ERR;
 	}
   unsigned short portID, slaveID, chipID, channelID, tacID;
@@ -144,12 +163,12 @@ int TOF_TdcQdcCalibration::readQdcCalib( const char *fname )
 		//std::cout << "[QDC calib] P0: " << p0 << std::endl;
 		ndata++;
   } while( 1 );
-  std::cout << Form( "QDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
+  //std::cout << Form( "QDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
 
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readCalibrationFiles( const char* fTdcCalib, const char* fQdcCalib )
+int TOF_TdcQdcCalibration::readCalibrationFiles( std::string fTdcCalib, std::string fQdcCalib )
 {
 	auto tdc = readTdcCalib( fTdcCalib );
 	auto qdc = readQdcCalib( fQdcCalib );
@@ -157,10 +176,10 @@ int TOF_TdcQdcCalibration::readCalibrationFiles( const char* fTdcCalib, const ch
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readCalibrationFiles( const char* dirPath )
+int TOF_TdcQdcCalibration::readCalibrationFiles( std::string dirPath )
 {
-	const char* tdc_calib = Form( "%s/tdc_calibration.tsv", dirPath );
-	const char* qdc_calib = Form( "%s/qdc_calibration.tsv", dirPath );
+	std::string tdc_calib = Form( "%s/tdc_calibration.tsv", dirPath.c_str() );
+	std::string qdc_calib = Form( "%s/qdc_calibration.tsv", dirPath.c_str() );
 	auto ok = readCalibrationFiles( tdc_calib, qdc_calib );
 
 	return ok;

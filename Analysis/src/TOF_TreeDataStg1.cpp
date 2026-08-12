@@ -59,7 +59,7 @@ void TOF_TreeDataStg1::setOutputPath( const char* fpath, const char* opt )
 void TOF_TreeDataStg1::setBranchStatus( const char* bname, bool status )
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree",getStgNb()) << std::endl;
+		std::cout<< Form("[INFO] Generate Stg%d TTree",getStgNb()) << std::endl;
 		fTTree = new TTree("data", "data");
 	}
 
@@ -69,7 +69,7 @@ void TOF_TreeDataStg1::setBranchStatus( const char* bname, bool status )
 void TOF_TreeDataStg1::setBranchAddress()
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
+		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
 		fTTree = new TTree("data", "data");
 	}
 
@@ -100,7 +100,7 @@ void TOF_TreeDataStg1::setBranchAddress()
 void TOF_TreeDataStg1::makeBranches()
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
+		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
 		fTTree = new TTree("data", "data");
 	}
 
