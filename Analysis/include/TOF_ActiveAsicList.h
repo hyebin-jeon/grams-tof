@@ -23,13 +23,14 @@ class TOF_ActiveAsicList : public TObject
   
   	TOF_ActiveAsicList() 
 			: fInputFile( getDefaultInputFile() ),
-			  fFebD_connID{0xFF, 0xFF}
+			  //fFebD_connID{0xFF, 0xFF}
+			  fFebD_connID{5, 0xFF}
 		{}
 
   	virtual ~TOF_ActiveAsicList() = default;
 		
 	private: 
-		uint8_t fFebD_connID[2]; 
+		uint8_t fFebD_connID[2];
 		std::string fInputFile;
 
 	public:

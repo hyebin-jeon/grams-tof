@@ -54,7 +54,7 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,88) ] = getPaddleIdx( eSystem::fUTOF, 24, eCoordinate::fDaqSide);
 
 	/// row-3, col-2
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,89) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,89) ] = getPaddleIdx( eSystem::fPPS, 0, eCoordinate::fDummy );
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,90) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,91) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,92) ] = 0;
@@ -64,8 +64,8 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,96) ] = 0;
 
   /// row-2, col-1
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0, 97) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0, 98) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0, 97) ] = getPaddleIdx( eSystem::fTest, 0, eCoordinate::fAsicSide ); // spare paddle placed on UTOF (=0)
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0, 98) ] = getPaddleIdx( eSystem::fTest, 1, eCoordinate::fAsicSide ); // spare paddle placed on MTOF (=1)
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0, 99) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,100) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,101) ] = 0;
@@ -140,7 +140,7 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,24) ] = getPaddleIdx( eSystem::fUTOF, 24, eCoordinate::fBiasSide);
 
 	/// row-2, col-1
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,25) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,25) ] = getPaddleIdx( eSystem::fTrig, 0, eCoordinate::fDummy );
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,26) ] = 0; 
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,27) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,28) ] = 0;
@@ -150,8 +150,8 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,32) ] = 0;
 
 	/// row-3, col-2
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,33) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,34) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,33) ] = getPaddleIdx( eSystem::fTest, 0, eCoordinate::fCleanSide ); // spare paddle placed on UTOF (=0)
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,34) ] = getPaddleIdx( eSystem::fTest, 1, eCoordinate::fCleanSide ); // spare paddle placed on MTOF (=1)
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,35) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,36) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,37) ] = 0;
@@ -388,7 +388,7 @@ void TOF_PaddleChannelMap::fillMapPaddleIdToConnId()
 	return;
 }
 
-uint8_t TOF_PaddleChannelMap::getFebSIdx( uint8_t connIdOnFebD )
+int TOF_PaddleChannelMap::getFebSIdx( uint8_t connIdOnFebD )
 {
 	auto theAsicList = TOF_ActiveAsicList::getInstance();
 	auto activeConn_FebD = theAsicList->getActiveConnIdOnFebD();
@@ -416,17 +416,36 @@ uint16_t TOF_PaddleChannelMap::getPaddleIdx( uint8_t connIdOnFebD, uint8_t connI
 uint8_t TOF_PaddleChannelMap::getSystemIdx( uint8_t connID_D, uint8_t connID_S )
 {
 	auto paddleIdx = getPaddleIdx( connID_D, connID_S );
-	return extractSystemIdx( paddleIdx );
+	return getSystemIdx( paddleIdx );
 }
 uint8_t TOF_PaddleChannelMap::getPaddleLocId( uint8_t connID_D, uint8_t connID_S )
 {
 	auto paddleIdx = getPaddleIdx( connID_D, connID_S );
-	return extractPaddleLocId( paddleIdx );
+	return getPaddleLocId( paddleIdx );
 }
 uint8_t TOF_PaddleChannelMap::getSipmLocId( uint8_t connID_D, uint8_t connID_S )
 {
 	auto paddleIdx = getPaddleIdx( connID_D, connID_S );
-	return extractSipmLocId( paddleIdx );
+	return getSipmLocId( paddleIdx );
+}
+
+bool TOF_PaddleChannelMap::isTriggerChannel( uint16_t paddleIdx )
+{
+	auto syst = getSystemIdx( paddleIdx );
+	bool rval = syst==eSystem::fTrig? true:false;
+	return rval;
+}
+bool TOF_PaddleChannelMap::isPpsChannel( uint16_t paddleIdx )
+{
+	auto syst = getSystemIdx( paddleIdx );
+	bool rval = syst==eSystem::fPPS? true:false;
+	return rval;
+}
+bool TOF_PaddleChannelMap::isTestPaddle( uint16_t paddleIdx )
+{
+	auto syst = getSystemIdx( paddleIdx );
+	bool rval = syst==eSystem::fTest? true:false;
+	return rval;
 }
 
 void TOF_PaddleChannelMap::dump()

@@ -43,17 +43,24 @@ class TOF_PaddleChannelMap : public TObject
 		/// paddleID <-> paddle Indice (system, paddle, channel)
 		uint16_t getPaddleIdx( uint16_t systemIdx, uint16_t paddleLocId, uint16_t sipmLocId );
 
-		uint8_t extractSystemIdx  ( uint16_t paddleIdx ){ return (paddleIdx>>12) & 0xF ; };
-		uint8_t extractPaddleLocId( uint16_t paddleIdx ){ return (paddleIdx>> 4) & 0xFF; };
-		uint8_t extractSipmLocId  ( uint16_t paddleIdx ){ return paddleIdx       & 0xF ; };
-		uint8_t getFebSIdx( uint8_t connIdOnFebD );
-
+	public:
+		int     getFebSIdx( uint8_t connIdOnFebD );
+		uint8_t getSystemIdx  ( uint16_t paddleIdx ){ return (paddleIdx>>12) & 0xF ; };
+		uint8_t getPaddleLocId( uint16_t paddleIdx ){ return (paddleIdx>> 4) & 0xFF; };
+		uint8_t getSipmLocId  ( uint16_t paddleIdx ){ return paddleIdx       & 0xF ; };
 	
 	public:
-		uint16_t getPaddleIdx( uint8_t FebS_idx, uint8_t connId );
-		uint8_t  getSystemIdx  ( uint8_t FebS_idx, uint8_t connId );
-		uint8_t  getPaddleLocId( uint8_t FebS_idx, uint8_t connId );
-		uint8_t  getSipmLocId  ( uint8_t FebS_idx, uint8_t connId );
+		uint16_t getPaddleIdx  ( uint8_t connID_D, uint8_t connID_S );
+		uint8_t  getSystemIdx  ( uint8_t connID_D, uint8_t connID_S );
+		uint8_t  getPaddleLocId( uint8_t connID_D, uint8_t connID_S );
+		uint8_t  getSipmLocId  ( uint8_t connID_D, uint8_t connID_S );
+
+		//bool isTriggerChannel( uint8_t connID_D, uint8_t connID_S );
+		//bool isPpsChannel    ( uint8_t connID_D, uint8_t connID_S );
+		//bool isTestPaddle    ( uint8_t connID_D, uint8_t connID_S );
+		bool isTriggerChannel( uint16_t paddleIdx );
+		bool isPpsChannel    ( uint16_t paddleIdx );
+		bool isTestPaddle    ( uint16_t paddleIdx );
 		
 		void dump();
 	  

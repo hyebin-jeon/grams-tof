@@ -31,18 +31,20 @@ enum class TOF_Discriminator {
 };
 		
 enum eSystem : uint16_t {
-//enum class eSystem {
 	fUTOF = 0,
 	fMTOF = 1,
 	fMPD  = 2,
 	fTrig = 3,
 	fPPS  = 4,
+	fTest = 5,
 };
 
 enum eCoordinate : uint16_t {
-//enum class eCoordinate {
-	fBiasSide = 0,
+	fBiasSide = 0, 
 	fDaqSide  = 1,
+	fAsicSide = 2,
+	fCleanSide= 3, // perhaps this will be the DC/DC side
+	fDummy    = 4,
 };
 
 const double fTOF_TdcClkFreq = 200E6; // 200 MHz

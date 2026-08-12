@@ -115,7 +115,7 @@ int TOF_ConvertStg1toStg2::addBranches()
     fStg2->setChannelID    ( channelID );
 		fStg2->setConnID_FebD  ( connID_D  );
 		fStg2->setConnID_FebS  ( connID_S  );
-		fStg2->setPaddleID     ( paddleIdx  );
+		fStg2->setPaddleIdx    ( paddleIdx  );
     fStg2->setTacID        ( tacID     );
     fStg2->setTCoarse      ( tCoarse   );
     fStg2->setECoarse      ( eCoarse   );
