@@ -35,7 +35,7 @@ int TOF_TreeDataStg1::setInputPath( const char* fpath )
 	fTFile = new TFile( fpath, "read" );
 
 	fTTree = (TTree*) fTFile->Get( getTTreeName().c_str() );
-	//fTTree = (TTree*) fTFile->Get( "data" );
+	if( !fTTree ) fTTree = (TTree*) fTFile->Get( "data" ); // temperary during transition from data->stg1
 
 	if( !fTTree ) {
 		std::cerr<< Form( "[ERR] TTree does NOT exist in %s:", fpath ) << std::endl;

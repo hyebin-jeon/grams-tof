@@ -12,13 +12,13 @@
 #include <TOF_TreeDataStg2.h>
 
 bool runTofQA_Iridium( const std::string& inputFile,
-                       const std::string& outputBase,
-											 const std::string& asicListFile
-											 //const int runTimeSec_
-											 )
+                       const std::string& outputBase
+		       //const std::string& asicListFile // unused.. 
+		       //const int runTimeSec_
+			 )
 {
 	/// output naming
-  const char* inputFile_c = inputFile.c_str();	
+        const char* inputFile_c = inputFile.c_str();	
 	
 	/// channel conversion class
 	auto theAttrib = TOF_Attributes::getInstance();

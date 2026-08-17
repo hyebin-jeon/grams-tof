@@ -594,8 +594,12 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().info("[CommandDispatch] Converting stg1 to stg2...");
             return analyzer_.runPetsysConvertStg1ToStg2(
-								config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
-                config.getSTG2Dir()
+		config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
+                config.getSTG2Dir(),
+                config.getString("main", "tdc_calibration_table"),
+                config.getString("main", "qdc_calibration_table")
+                //config.getAbsolutePath("main", "tdc_calibration_table"),
+                //config.getAbsolutePath("main", "tdc_calibration_table"),
             );
         });
     };
@@ -607,7 +611,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().info("[CommandDispatch] Running TOF coin evt calculation...");
             return analyzer_.runPetsysProcessTofCoinEvtQA(
                 config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
-								config.getSTG2Dir(),
+		config.getSTG2Dir(),
                 config.getString("main", "tdc_calibration_table"),
                 config.getString("main", "qdc_calibration_table"),
                 {argv.size() > 0 ? static_cast<int>(argv[0]) : -1}
@@ -622,8 +626,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             Logger::instance().info("[CommandDispatch] Running TOF Quality Assurance for Iridium...");
             bool output = analyzer_.runPetsysProcessTofQAIridium(
                 config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
-								config.getHistDir(),
-								config.getString("main", "active_asic_list") 
+		config.getHistDir()
+		//config.getString("main", "active_asic_list") 
             );
 
             if (!output) {
