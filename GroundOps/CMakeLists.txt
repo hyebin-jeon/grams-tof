@@ -48,4 +48,11 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/systemd/tof-bridge.service")
     )
 endif()
 
+# 7. Install bias control
+install(PROGRAMS 
+    bias/bias_control.py
+    bias/mock_bias_board.py 
+    DESTINATION ${GROUND_INSTALL_DIR}/bias
+)
+
 message(STATUS "GroundOps configured: Files will be installed to ${CMAKE_INSTALL_PREFIX}/${GROUND_INSTALL_DIR}")
