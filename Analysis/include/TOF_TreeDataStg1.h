@@ -24,6 +24,7 @@ class TOF_TreeDataStg1 : public TObject
 
 	public:
 		virtual int getStgNb() const {return 1; }
+		virtual std::string getTTreeName() const {return "data"; }
 
 	public: 
 		/// read
