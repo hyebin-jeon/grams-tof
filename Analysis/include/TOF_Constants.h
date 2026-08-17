@@ -26,8 +26,8 @@ enum class TOF_Branch {
 
 enum class TOF_Discriminator {
   fDiscT1 = 0,
-  fDiscT2 = 2,
-  fDiscE  = 3,
+  fDiscT2 = 1, //2,
+  fDiscE  = 2, //3,
 };
 		
 enum eSystem : uint16_t {
