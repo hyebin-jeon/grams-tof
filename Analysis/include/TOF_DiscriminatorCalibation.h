@@ -44,25 +44,25 @@ class TOF_DiscriminatorCalibration : public TObject
 
 	private:
 	  /// param[chipID][channelID][tacID][T or E]
-    double fBaseline[16][64][2]; // baseline for T and E branches
-    double fZero [16][64][3]; // zero  for t1, t2, e discriminators
-    double fNoise[16][64][3]; // noise for t1, t2, e discriminators
+    int    fBaseline[16][64][2]; // baseline for T and E branches
+    double fZero    [16][64][3]; // zero  for t1, t2, e discriminators
+    double fNoise   [16][64][3]; // noise for t1, t2, e discriminators
     
 	public:
 		void initializeParams();
     
-		inline double getBaseline_T( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchT]; };
-		inline double getBaseline_E( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchE]; };
-		inline double getZero_t1   ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrT1]; };
-		inline double getZero_t2   ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrT2]; };
-		inline double getZero_e    ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrE]; };
-    inline double getNoise_t1  ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrT1]; };
-    inline double getNoise_t2  ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrT2]; };
-    inline double getNoise_e   ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrE]; };
+		inline int    getBaseline_T( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchT];};
+		inline int    getBaseline_E( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchE];};
+		inline double getZero_t1   ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrT1];    };
+		inline double getZero_t2   ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrT2];    };
+		inline double getZero_e    ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrE];     };
+    inline double getNoise_t1  ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrT1];   };
+    inline double getNoise_t2  ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrT2];   };
+    inline double getNoise_e   ( uint8_t chipID, uint32_t channelID ) { return fNoise[chipID][channelID][fDiscrE];    };
 
-		double getBaseline( uint8_t chipID, uint32_t channelID, TOF_Branch br );
-		double getZero ( uint8_t chipID, uint32_t channelID, TOF_Discriminator disc );
-		double getNoise( uint8_t chipID, uint32_t channelID, TOF_Discriminator disc );
+		int    getBaseline( uint8_t chipID, uint32_t channelID, TOF_Branch br );
+		double getZero    ( uint8_t chipID, uint32_t channelID, TOF_Discriminator disc );
+		double getNoise   ( uint8_t chipID, uint32_t channelID, TOF_Discriminator disc );
 
 		std::vector<double> getDiscrParams( uint32_t absChannelID, TOF_Discriminator disc );
     

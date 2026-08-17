@@ -45,42 +45,80 @@ void TOF_DiscriminatorCalibration::initializeParams()
 
 int TOF_DiscriminatorCalibration::readCalib( const char *fname )
 {
-  std::ifstream finQ( fname );
-	if( ! finQ.is_open() ) {
+  std::ifstream fin;
+	fin.clear();
+	fin.open( fname );
+	if( ! fin.is_open() ) {
 		std::cout<< Form( "[ERR] DISCRIMINATOR calibration file does not exist.Exit(): %s", fname ) << std::endl;
 		return TOF_ERR;
 	}
-  unsigned short portID, slaveID, chipID, channelID;
-  double bT, bE, zT1, zT2, zE, nT1, nT2, nE;
-  TString head;
-  char buf[256];
-  unsigned short ndata = 0;
-  do {
-    finQ >> head;
-    if ( head.Contains( '#' ) ) {
-      finQ.getline( buf, 256 );
-      continue;
-    }
-    if ( finQ.eof() ) break;
-    finQ >> portID >> slaveID >> chipID >> channelID >> bT >> bE >> zT1 >> zT2 >> zE >> nT1 >> nT2 >> nE;
-    std::cout << Form( "%u %u %u %f %f %f %f %f", portID, chipID, channelID, bT, bE, zT1, zT2, zE ) << std::endl;
-    fBaseline[chipID][channelID][(int)fbranchT] = bT;
-    fBaseline[chipID][channelID][(int)fbranchE] = bE;
+	else { std::cout << "[INFO] TOF_DiscriminatorCalibration::readCalib --> reading " << fname << std::endl; }
 
-    fZero[chipID][channelID][(int)fDiscrT1] = zT1;
-    fZero[chipID][channelID][(int)fDiscrT2] = zT2;
-    fZero[chipID][channelID][(int)fDiscrE]  = zE ;
+	initializeParams();
 
-    fNoise[chipID][channelID][(int)fDiscrT1] = nT1;
-    fNoise[chipID][channelID][(int)fDiscrT2] = nT2;
-    fNoise[chipID][channelID][(int)fDiscrE]  = nE ;
+  std::string word, sLine;
+  std::stringstream ssLine;
+	const int line0 = 1;
+  int wordN{0}, lineN{0};
+	//int portID, slaveID, chipID, channelID, baseline_T, baseline_E;
+  unsigned short portID, slaveID, chipID, channelID, baseline_T, baseline_E;
+	double zero_T1, zero_T2, zero_E;
+	double noise_T1, noise_T2, noise_E;
 
-		//std::cout << Form("chip: %02d, channel: %02d, BL_T: %2.1f, BL_E: %2.1f, zero_t1: %2.1f, zero_t2: %2.1f, zero_e: %2.1f, noise_t1: %2.1f, noise_t2: %2.1f, noise_e: %2.1f", chipID, channelID, bT, bE, zT1, zT2, zE, nT1, nT2, nE) << std::endl;
-		ndata++;
-  } while( 1 );
-  std::cout << Form( "DISCRIMINATOR Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
+	/// read line by line
+  while( std::getline(fin, sLine) )
+  {
+    //ssLine.clear();
+    //ssLine << sLine;
+		ssLine.str(sLine);
+    ssLine.clear();
+		  
+		if( lineN< line0 ) {lineN++; continue;}
 
-	return 1;
+		/// break a line to words
+		/// the scan param table should use '\t' to separate variables
+    wordN=0;
+    while( std::getline(ssLine, word, '\t') ) 
+    {   
+			if     ( wordN==0 ) portID    = std::atoi( word.c_str() );
+			else if( wordN==1 ) slaveID   = std::atoi( word.c_str() );
+			else if( wordN==2 ) chipID    = std::atoi( word.c_str() );
+			else if( wordN==3 ) channelID = std::atoi( word.c_str() );
+			else if( wordN==4 ) baseline_T= std::atoi( word.c_str() );
+			else if( wordN==5 ) baseline_E= std::atoi( word.c_str() );
+			else if( wordN==6 ) zero_T1   = std::atof( word.c_str() );
+			else if( wordN==7 ) zero_T2   = std::atof( word.c_str() );
+			else if( wordN==8 ) zero_E    = std::atof( word.c_str() );
+			else if( wordN==9 ) noise_T1  = std::atof( word.c_str() );
+			else if( wordN==10) noise_T2  = std::atof( word.c_str() );
+			else if( wordN==11) noise_E   = std::atof( word.c_str() );
+			else std::cout << "[Warning] Too Many Scan Parameter values.." << std::endl;
+
+			wordN++;
+		}
+
+		fBaseline[chipID][channelID][(int)fbranchT] = baseline_T;
+    fBaseline[chipID][channelID][(int)fbranchE] = baseline_E;
+
+    fZero[chipID][channelID][(int)fDiscrT1] = zero_T1;
+    fZero[chipID][channelID][(int)fDiscrT2] = zero_T2;
+    fZero[chipID][channelID][(int)fDiscrE]  = zero_E ;
+
+    fNoise[chipID][channelID][(int)fDiscrT1] = noise_T1;
+    fNoise[chipID][channelID][(int)fDiscrT2] = noise_T2;
+    fNoise[chipID][channelID][(int)fDiscrE]  = noise_E ;
+
+		//if( lineN<130 )
+		//std::cout << Form("[%3d] chip: %02d, channel: %02d, BL_T: %2d, BL_E: %2d, zero_t1: %2.1f, zero_t2: %2.1f, zero_e: %2.1f, noise_t1: %2.1f, noise_t2: %2.1f, noise_e: %2.1f", lineN, chipID, channelID, baseline_T, baseline_E, zero_T1, zero_T2, zero_E, noise_T1, noise_T2, noise_E) << std::endl;
+		lineN++;
+	}
+
+	//if( lineN>=130 ) return TOF_ERR;
+
+	fin.close();
+  std::cout << Form( "DISCRIMINATOR Calibration Data (%d lines) Loaded.", lineN ) << std::endl;
+
+	return TOF_GOOD;
 }
 
 int TOF_DiscriminatorCalibration::readCalibFromDir( const char* dirPath )
@@ -96,7 +134,7 @@ void TOF_DiscriminatorCalibration::printCalibTable( uint32_t absChannelID )
 	auto chipID    = (TOF_ChannelConversion::getInstance())->getAsicID   ( absChannelID );
 	auto channelID = (TOF_ChannelConversion::getInstance())->getChannelID( absChannelID );
 
-	std::cout << Form("chip: %02d, channel: %02d, BL_T: %2.1f, BL_E: %2.1f, zero_t1: %2.1f, zero_t2: %2.1f, zero_e: %2.1f, noise_t1: %2.1f, noise_t2: %2.1f, noise_e: %2.1f", 
+	std::cout << Form("chip: %02d, channel: %02d, BL_T: %2d, BL_E: %2d, zero_t1: %2.1f, zero_t2: %2.1f, zero_e: %2.1f, noise_t1: %2.1f, noise_t2: %2.1f, noise_e: %2.1f", 
 			               chipID, channelID, 
 										 fBaseline[chipID][channelID][fbranchT], fBaseline[chipID][channelID][fbranchE], 
 										 fZero[chipID][channelID][fDiscrT1], fZero[chipID][channelID][fDiscrT2], fZero[chipID][channelID][fDiscrE],
@@ -106,7 +144,7 @@ void TOF_DiscriminatorCalibration::printCalibTable( uint32_t absChannelID )
 	return;
 }
 
-double TOF_DiscriminatorCalibration::getBaseline(uint8_t chipID, uint32_t channelID, TOF_Branch br )
+int TOF_DiscriminatorCalibration::getBaseline(uint8_t chipID, uint32_t channelID, TOF_Branch br )
 {
 	int brIdx = (int) br; 
 	return fBaseline[chipID][channelID][brIdx];
@@ -127,12 +165,12 @@ std::vector<double> TOF_DiscriminatorCalibration::getDiscrParams( uint32_t absCh
 	auto chipID    = (TOF_ChannelConversion::getInstance())->getAsicID   ( absChannelID );
 	auto channelID = (TOF_ChannelConversion::getInstance())->getChannelID( absChannelID );
 
-	std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> disc = " << (int) disc << std::endl;
+	//std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> disc = " << (int) disc << std::endl;
 
 	int brIdx(-99);
 	if( disc== TOF_Discriminator::fDiscT1 || disc == TOF_Discriminator::fDiscT2 ) brIdx = (int) TOF_Branch::fBranchT;
 	if( disc == TOF_Discriminator::fDiscE ) brIdx = (int) TOF_Branch::fBranchE;
-	std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> br = " << (int) brIdx << std::endl;
+	//std::cout << "TOF_DiscriminatorCalibration::getDiscrParams --> br = " << (int) brIdx << std::endl;
 
 	int dIdx = (int) disc;
 
