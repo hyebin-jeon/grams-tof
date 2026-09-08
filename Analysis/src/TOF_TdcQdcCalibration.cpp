@@ -96,8 +96,8 @@ int TOF_TdcQdcCalibration::readTdcCalib( std::string fname )
 	/// read line by line
   while( std::getline(fin, sLine) )
   {
-    ssLine.clear();
-    ssLine << sLine;
+		ssLine.str(sLine);
+		ssLine.clear();
 
 		if( lineN< line0 ) {lineN++; continue;}
 

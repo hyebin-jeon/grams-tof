@@ -2,7 +2,6 @@
 
 ClassImp( TOF_DiscriminatorCalibration );
 
-//TOF_DiscriminatorCalibration::TOF_DiscriminatorCalibration()
 void TOF_DiscriminatorCalibration::initializeParams()
 {
 	int chipN    = NUMBER_OF_ASICS;
@@ -21,27 +20,12 @@ void TOF_DiscriminatorCalibration::initializeParams()
 				fZero [chipID][chanID][disc] = -99999;
 				fNoise[chipID][chanID][disc] = -99999;
 			}
-
-			//B_T [chipID][chanID][brID] = -99999;
-	    //B_E [chipID][chanID][brID] = -99999;
-	    //Z_t1[chipID][chanID][brID] = -99999;
-	    //Z_t2[chipID][chanID][brID] = -99999;
-	    //Z_e [chipID][chanID][brID] = -99999;
-	    //N_t1[chipID][chanID][brID] = -99999;
-	    //N_t2[chipID][chanID][brID] = -99999;
-	    //N_e [chipID][chanID][brID] = -99999;
     }
   }
 
 	return;
 }
 
-//double TOF_DiscriminatorCalibration::getBaseline( uint8_t chipID, uint32_t channelID, TOF_Branch br ) { 
-//	if( br == TOF_Branch::fBranchT ) return getT0_T(chipID, channelID, tacID);
-//	if( br == TOF_Branch::fBranchE ) return getT0_E(chipID, channelID, tacID);
-//
-//	return -99;
-//};
 
 int TOF_DiscriminatorCalibration::readCalib( const char *fname )
 {
@@ -60,7 +44,6 @@ int TOF_DiscriminatorCalibration::readCalib( const char *fname )
   std::stringstream ssLine;
 	const int line0 = 1;
   int wordN{0}, lineN{0};
-	//int portID, slaveID, chipID, channelID, baseline_T, baseline_E;
   unsigned short portID, slaveID, chipID, channelID, baseline_T, baseline_E;
 	double zero_T1, zero_T2, zero_E;
 	double noise_T1, noise_T2, noise_E;
@@ -68,8 +51,6 @@ int TOF_DiscriminatorCalibration::readCalib( const char *fname )
 	/// read line by line
   while( std::getline(fin, sLine) )
   {
-    //ssLine.clear();
-    //ssLine << sLine;
 		ssLine.str(sLine);
     ssLine.clear();
 		  
