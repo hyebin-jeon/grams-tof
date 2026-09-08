@@ -12,7 +12,7 @@ uint16_t TOF_PaddleChannelMap::getPaddleIdx( uint16_t systemIdx, uint16_t paddle
 
 	return rval;
 }
-		
+
 void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 {
 	//////////////////////////////////////////
@@ -96,12 +96,12 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	/// row-2, col-2
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,121) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,122) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,123) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,124) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,125) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,126) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,127) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,128) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,123) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Up +0 );
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,124) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Up +1 );
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,125) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Up +2 );
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,126) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Up +0 );
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,127) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Up +1 );
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,128) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Up +2 );
 
 	
 	////////////////////////////
@@ -182,12 +182,12 @@ void TOF_PaddleChannelMap::fillMapConnIdToPaddleId()
 	/// row-3, col-1
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,57) ] = 0;
 	fMap_ConnIdToPaddleIdx[ std::make_pair(0,58) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,59) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,60) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,61) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,62) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,63) ] = 0;
-	fMap_ConnIdToPaddleIdx[ std::make_pair(0,64) ] = 0;
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,59) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Down + 0 ); // thinner MPD #5
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,60) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Down + 1); // thinner MPD #5
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,61) ] = getPaddleIdx( eSystem::fMPD, 1, eCoordinate::fMPD_Down + 2 ); // thinner MPD #5
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,62) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Down + 0 ); // thicker MPD #2
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,63) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Down + 1 ); // thicker MPD #2
+	fMap_ConnIdToPaddleIdx[ std::make_pair(0,64) ] = getPaddleIdx( eSystem::fMPD, 2, eCoordinate::fMPD_Down + 2 ); // thicker MPD #2
 
 	/*
 	//////////////////////////////////////////
@@ -475,6 +475,39 @@ std::pair<uint8_t, uint8_t> TOF_PaddleChannelMap::getConnectorIDs_PPS()
 	uint8_t connID_S = connIDs.second;
 
 	return std::make_pair( connID_D, connID_S );
+}
+
+//std::pair<uint8_t, uint8_t> TOF_PaddleChannelMap::getConnectorIDs_SpareUTOF()
+std::array<uint32_t,2> TOF_PaddleChannelMap::getConnectorIDs_Spare( uint8_t syst )
+{
+	uint8_t paddleID;
+	if     ( syst == eSystem::fUTOF ) paddleID = 0;
+	else if( syst == eSystem::fMTOF ) paddleID = 1;
+
+	auto paddleIdx0 = getPaddleIdx( eSystem::fTest, paddleID, eCoordinate::fAsicSide  );
+	auto paddleIdx1 = getPaddleIdx( eSystem::fTest, paddleID, eCoordinate::fCleanSide );
+
+	auto connIDs0 = fMap_PaddleIdxToConnIDs[ paddleIdx0 ];
+	auto connIDs1 = fMap_PaddleIdxToConnIDs[ paddleIdx1 ];
+
+	auto theChanConv = TOF_ChannelConversion::getInstance();
+	auto theAsicList = TOF_ActiveAsicList::getInstance();
+	auto activeConn_FebD = theAsicList->getActiveConnIdOnFebD();
+
+	std::array<uint32_t,2> rval;
+
+	int i=0;
+	for( auto paddleIdx : { paddleIdx0, paddleIdx1 } )
+	{
+		auto    connIDs  = fMap_PaddleIdxToConnIDs[ paddleIdx ];
+		uint8_t connID_D = activeConn_FebD[ connIDs.first ];
+		uint8_t connID_S = connIDs.second;
+	
+		auto channel = theChanConv->getAbsoluteChannelID( connID_D, connID_S );
+		rval[i++] = channel;
+	}
+
+	return rval;
 }
 
 void TOF_PaddleChannelMap::dump()

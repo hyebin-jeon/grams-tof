@@ -42,9 +42,11 @@ enum eSystem : uint16_t {
 enum eCoordinate : uint16_t {
 	fBiasSide = 0, 
 	fDaqSide  = 1,
-	fAsicSide = 2,
-	fCleanSide= 3, // perhaps this will be the DC/DC side
+	fAsicSide = 0, //2,
+	fCleanSide= 1, //3, // perhaps this will be the DC/DC side
 	fDummy    = 4,
+	fMPD_Up   = 0,
+	fMPD_Down = 3,
 };
 
 const double fTOF_TdcClkFreq = 200E6; // 200 MHz

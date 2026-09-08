@@ -50,7 +50,8 @@ class TOF_DiscriminatorCalibration : public TObject
     
 	public:
 		void initializeParams();
-    
+   
+		/// chipID =[0,15], channelID = [0, 63]
 		inline int    getBaseline_T( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchT];};
 		inline int    getBaseline_E( uint8_t chipID, uint32_t channelID ) { return fBaseline[chipID][channelID][fbranchE];};
 		inline double getZero_t1   ( uint8_t chipID, uint32_t channelID ) { return fZero[chipID][channelID][fDiscrT1];    };
