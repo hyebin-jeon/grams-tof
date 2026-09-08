@@ -115,7 +115,7 @@ int TOF_ConvertStg1toStg2::addBranches()
     fStg2->setChannelID    ( channelID );
 		fStg2->setConnID_FebD  ( connID_D  );
 		fStg2->setConnID_FebS  ( connID_S  );
-		fStg2->setPaddleIdx    ( paddleIdx  );
+		fStg2->setPaddleIdx    ( paddleIdx );
     fStg2->setTacID        ( tacID     );
     fStg2->setTCoarse      ( tCoarse   );
     fStg2->setECoarse      ( eCoarse   );
@@ -164,6 +164,7 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 	fStg2->setOutputPath( kPathStg2, "recreate" );
 	addBranches();
 	fStg2->getTTree()->Write();
+	if( fStg2->getTFile()->GetListOfKeys()->GetEntries()>1 ) fStg2->getTFile()->Purge();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
 	fStg2->closeTFile();
  
