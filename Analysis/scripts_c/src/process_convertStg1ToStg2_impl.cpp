@@ -22,8 +22,8 @@ using namespace std;
 bool runConvertStg1ToStg2(const std::string& inputFile, 
                           const std::string& outputBase, 
                           const std::string& tdc_cal, 
-                          const std::string& qdc_cal, 
-                          const std::string& asic_list )
+                          const std::string& qdc_cal )
+                          //const std::string& asic_list )
 {
 	/// Class setup
 	auto theConvStg = TOF_ConvertStg1toStg2::getInstance();
@@ -42,7 +42,7 @@ bool runConvertStg1ToStg2(const std::string& inputFile,
 	auto output = Form("%s/%s.stg2.root", outputDir.Data(), name_file.Data());
 
 	//theConvStg->convertStg1ToStg2( inputFile_c, Form("%s/%s.stg2.root", outputDir.Data(), name_file.Data()) );
-	theConvStg->convertStg1ToStg2( inputFile_c, output, tdc_cal.c_str(), qdc_cal.c_str(), asic_list.c_str() );
+	theConvStg->convertStg1ToStg2( inputFile_c, output, tdc_cal.c_str(), qdc_cal.c_str() ); //, asic_list.c_str() );
 
   return true;
 }

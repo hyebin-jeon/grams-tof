@@ -27,6 +27,7 @@ class TOF_TreeDataStg2 : public TOF_TreeDataStg1
 
 	public:
 		int getStgNb() const override {return 2; }
+		std::string getTTreeName() const override {return "stg2"; }
 	public: 
 		void setBranchAddress() override;
 		void makeBranches() override;

@@ -132,7 +132,7 @@ int TOF_ConvertStg1toStg2::addBranches()
 	return TOF_GOOD;
 }
 
-void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2, const char* tdc_cal_tsv, const char* qdc_cal_tsv, const char* asic_list_tsv )
+void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2, const char* tdc_cal_tsv, const char* qdc_cal_tsv ) //, const char* asic_list_tsv )
 {
 	if( !fStg1 ) setClassStg1();
 	if( !fStg2 ) setClassStg2();
@@ -152,13 +152,13 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 
 	/// active asic list
 	auto theAsicList = TOF_ActiveAsicList::getInstance();
-	if( strcmp(asic_list_tsv, "")!=0 ) {
-		theAsicList->setInputFile( (std::string) asic_list_tsv );
-	}
-	else {
-		theAsicList->useDefaultInputFile();
-	}
-	theAsicList->readActiveAsicList();
+	//if( strcmp(asic_list_tsv, "")!=0 ) {
+	//	theAsicList->setInputFile( (std::string) asic_list_tsv );
+	//}
+	//else {
+	//	theAsicList->useDefaultInputFile();
+	//}
+	//theAsicList->readActiveAsicList();
 
 	/// stg2 TTree
 	fStg2->setOutputPath( kPathStg2, "recreate" );

@@ -37,8 +37,8 @@ class TOF_PaddleChannelMap : public TObject
 		void fillMapPaddleIdToConnId();
 		void fillMapChannelIdAndPaddleId();
 
-		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddleIdx; // pair<FEB-S Idx, ConnIdOnFebS> --> paddle Idx 0xABBC
-		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleIdxToConnIDs; // paddle Idx 0xABBC--> pair<FEB-S Idx, ConnIdOnFebS>
+		std::map< std::pair<uint8_t, uint8_t> , uint16_t > fMap_ConnIdToPaddleIdx; // pair<FEB-S Idx, ConnIdOnFebS> --> paddle Idx 0xABBCC
+		std::map< uint16_t, std::pair<uint8_t, uint8_t> > fMap_PaddleIdxToConnIDs; // paddle Idx 0xABBCC--> pair<FEB-S Idx, ConnIdOnFebS>
 	private:
 		/// paddleID <-> paddle Indice (system, paddle, channel)
 		uint16_t getPaddleIdx( uint16_t systemIdx, uint16_t paddleLocId, uint16_t sipmLocId );
@@ -65,6 +65,7 @@ class TOF_PaddleChannelMap : public TObject
 	public:
 		std::pair<uint8_t, uint8_t> getConnectorIDs_Trigger();
 		std::pair<uint8_t, uint8_t> getConnectorIDs_PPS();
+		std::array<uint32_t,2>      getConnectorIDs_Spare( uint8_t syst );
 		
 		void dump();
 	  
