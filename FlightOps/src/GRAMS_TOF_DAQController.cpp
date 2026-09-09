@@ -164,4 +164,6 @@ void GRAMS_TOF_DAQController::run() {
 void GRAMS_TOF_DAQController::stop() {
     Logger::instance().info("[DAQController] Received STOP signal. Shutting down TOF DAQ...");
     keepRunning_ = false;
+
+    daq_.stop();
 }
