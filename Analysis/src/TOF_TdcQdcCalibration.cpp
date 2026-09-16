@@ -138,6 +138,8 @@ int TOF_TdcQdcCalibration::readTdcCalib( std::string fname )
 		lineN++;
 	}
 
+	fin.close();
+
 	/*
   unsigned short portID, slaveID, chipID, channelID, tacID;
   char branch;
@@ -186,13 +188,62 @@ int TOF_TdcQdcCalibration::readQdcCalib( std::string fname )
 
   printf("[INFO] Load QDC calibration: %s\n", qdcPath.Data());
 
-  std::ifstream finQ( qdcPath.Data() );
-	if( ! finQ.is_open() ) {
+  std::ifstream fin( qdcPath.Data() );
+	if( ! fin.is_open() ) {
 		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", qdcPath.Data() ) << std::endl;
 		return TOF_ERR;
 	}
+  
+	std::string word, sLine;
+  std::stringstream ssLine;
+	const int line0 = 1;
+  int wordN{0}, lineN{0};
   unsigned short portID, slaveID, chipID, channelID, tacID;
-  double p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;
+  //double p0, p1, p2, p3, p4, p5, p6, p7, p8, p9;
+	double par[10] = {0};
+	
+	/// read line by line
+  while( std::getline(fin, sLine) )
+  {
+		ssLine.str(sLine);
+		ssLine.clear();
+
+		if( lineN< line0 ) {lineN++; continue;}
+
+		/// break a line to words
+		/// the scan param table should use '\t' to separate variables
+    wordN=0;
+    while( std::getline(ssLine, word, '\t') ) 
+    {   
+			if     ( wordN==0 ) portID    = std::atoi( word.c_str() );
+			else if( wordN==1 ) slaveID   = std::atoi( word.c_str() );
+			else if( wordN==2 ) chipID    = std::atoi( word.c_str() );
+			else if( wordN==3 ) channelID = std::atoi( word.c_str() );
+			else if( wordN==4 ) tacID     = std::atoi( word.c_str() );
+			else if( wordN>=5 && wordN<14 ) par[wordN-5] = std::atof( word.c_str() );
+			else 
+				std::cout << "[Warning] Too Many Scan Parameter values.. sWord: " << word << std::endl;
+
+			wordN++;
+		}
+    
+		P0[chipID][channelID][tacID] = par[0];
+    P1[chipID][channelID][tacID] = par[1];
+    P2[chipID][channelID][tacID] = par[2];
+    P3[chipID][channelID][tacID] = par[3];
+    P4[chipID][channelID][tacID] = par[4];
+    P5[chipID][channelID][tacID] = par[5];
+    P6[chipID][channelID][tacID] = par[6];
+    P7[chipID][channelID][tacID] = par[7];
+    P8[chipID][channelID][tacID] = par[8];
+    P9[chipID][channelID][tacID] = par[9];
+
+		lineN++;
+	}
+
+	fin.close();
+
+	/*
   TString head;
   char buf[256];
   unsigned short ndata = 0;
@@ -218,6 +269,7 @@ int TOF_TdcQdcCalibration::readQdcCalib( std::string fname )
 		//std::cout << "[QDC calib] P0: " << p0 << std::endl;
 		ndata++;
   } while( 1 );
+	*/
   //std::cout << Form( "QDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
 
 	return 1;
