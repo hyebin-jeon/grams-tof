@@ -3,22 +3,26 @@ import os
 import sys
 import logging
 import subprocess
+import glob
 
 # --- FIXED LOGGING CONFIG ---
 log_filename = "setup_db.log"
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s: %(message)s',
-    datefmt='[%Y-%m-%d %H:%M:%S]', # Date format goes here, not in 'format'
+    datefmt='[%Y-%m-%d %H:%M:%S]',
     handlers=[
         logging.FileHandler(log_filename),
         logging.StreamHandler(sys.stdout)
     ]
 )
 
-db_user = os.getenv("TOF_MYSQL_USER")
-db_pass = os.getenv("TOF_MYSQL_PASS")
-db_name = os.getenv("TOF_MYSQL_DB")
+#db_user = os.getenv("TOF_MYSQL_USER")
+#db_pass = os.getenv("TOF_MYSQL_PASS")
+#db_name = os.getenv("TOF_MYSQL_DB")
+db_user = os.getenv("PGRAMS_MYSQL_USER")
+db_pass = os.getenv("PGRAMS_MYSQL_PASSWD")
+db_name = os.getenv("PGRAMS_MYSQL_DB")
 glib_path = os.getenv("GLIB")
 
 def setup():
@@ -47,19 +51,17 @@ def setup():
         cursor.execute("FLUSH PRIVILEGES;")
         logging.info(f"Database '{db_name}' and user '{db_user}' permissions set.")
 
-        # 3. Import Table Schema
-        sql_file = os.path.join(glib_path, "ground/sql/create_tof_monitor.sql") if glib_path else None
-        if sql_file and os.path.exists(sql_file):
-            logging.info(f"Importing table schema into {db_name}...")
-            
-            # Use --force to ignore the 'USE grams' error or just pipe into the right DB
-            # We use -D to force the database context to our environment variable
-            cmd = f"mysql -u {db_user} -p'{db_pass}' -D {db_name} < {sql_file}"
-            
-            subprocess.run(cmd, shell=True, check=True)
-            logging.info("Table 'tof_monitor' created successfully.")
+        # 3. Import All Table Schemas in ground/sql/
+        sql_dir = os.path.join(glib_path, "ground/sql") if glib_path else None
+        if sql_dir and os.path.exists(sql_dir):
+            sql_files = glob.glob(os.path.join(sql_dir, "*.sql"))
+            for sql_file in sql_files:
+                logging.info(f"Importing schema file: {os.path.basename(sql_file)}...")
+                cmd = f"mysql -u {db_user} -p'{db_pass}' -D {db_name} < {sql_file}"
+                subprocess.run(cmd, shell=True, check=True)
+                logging.info(f"Schema from {os.path.basename(sql_file)} applied successfully.")
         else:
-            logging.warning("SQL schema file not found.")
+            logging.warning("SQL schema directory not found.")
 
     except Exception as e:
         logging.error(f"Setup failed: {e}")

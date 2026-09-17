@@ -107,15 +107,10 @@ bool runTofQA_Iridium( const std::string& inputFile,
 	hEvtPaddle_MTOF->GetYaxis()->SetTitle("Event rate (Hz)");
 	//hEvtPaddle_MTOF->GetXaxis()->SetNdivisions( 520 );
 
-	//float mpd_binW = 1./6;
-	//float mpd_x0 = 1-mpd_binW;
-	//float mpd_x1 = 3+mpd_binW;
-	//float mpd_bin = (mpd_x1 - mpd_x0 )/mpd_binW;
 	TH1F* hEvtPaddle_MPD = new TH1F("hEvtPaddle_MPD", Form("MPD Event rate (FebD_%02d)", activeConnIds_D[0]), 4*6, 0, 4 );
 	hEvtPaddle_MPD->GetXaxis()->SetTitle("MPD Paddle ID (6 ch/paddle)");
 	hEvtPaddle_MPD->GetYaxis()->SetTitle("Event rate (Hz)");
 
-	//double evtRate_PPS{0}, evtRate_TRG{0};
   TParameter<double> evtRate_PPS( "evtRate_PPS", 0 );
 	TParameter<double> evtRate_TRG( "evtRate_TRG", 0 );
 

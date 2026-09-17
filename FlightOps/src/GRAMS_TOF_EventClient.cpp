@@ -295,9 +295,13 @@ bool GRAMS_TOF_EventClient::isHealthy() const {
 
 bool GRAMS_TOF_EventClient::sendMonitorData(TOFCommandCode code, const GRAMS_TOF_MonitorCodec::MonitorData& data) {
     GRAMS_TOF_CommandCodec::Packet pkt = GRAMS_TOF_MonitorCodec::encode(data);
-
     pkt.code = static_cast<uint16_t>(code);
+    return sendPacket(pkt);
+}
 
+bool GRAMS_TOF_EventClient::sendLogData(TOFCommandCode code, const GRAMS_TOF_LogCodec::LogData& data) {
+    GRAMS_TOF_CommandCodec::Packet pkt = GRAMS_TOF_LogCodec::encode(data);
+    pkt.code = static_cast<uint16_t>(code);
     return sendPacket(pkt);
 }
 

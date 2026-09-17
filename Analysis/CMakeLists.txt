@@ -62,7 +62,7 @@ target_include_directories(GramsTofAnalysisLib PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include/Analysis>
 )
-target_link_libraries(GramsTofAnalysisLib PUBLIC ${ROOT_LIBRARIES})
+target_link_libraries(GramsTofAnalysisLib PUBLIC ${ROOT_LIBRARIES} GramsTofCommonLib)
 
 # 빌드 순서 보장: dictionary 먼저 생성
 #add_dependencies(GramsTofAnalysisLib GramsTofAnalysisDict)

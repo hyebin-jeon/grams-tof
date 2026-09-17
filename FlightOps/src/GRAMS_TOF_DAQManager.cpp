@@ -101,6 +101,11 @@ bool GRAMS_TOF_DAQManager::run() {
 
 void GRAMS_TOF_DAQManager::stop() {
     globalUserStop.store(true, std::memory_order_relaxed);
+
+    int server_fd = GRAMS_TOF_FDManager::instance().getServerFD(ServerKind::DAQ);
+    if (server_fd >= 0) {
+        ::shutdown(server_fd, SHUT_RDWR);
+    }
 }
 
 int GRAMS_TOF_DAQManager::createListeningSocket() {
@@ -232,6 +237,12 @@ void GRAMS_TOF_DAQManager::pollSocket() {
     clientList.clear();
 
     ::close(epoll_fd);
+    int server_fd = GRAMS_TOF_FDManager::instance().getServerFD(ServerKind::DAQ);
+    if (server_fd >= 0) {
+        ::close(server_fd);
+        GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::DAQ);
+    }
+
     //GRAMS_TOF_FDManager::instance().removeServerFD(ServerKind::DAQ);
     //unlink(socketPath_.c_str());
     Logger::instance().info("[DAQManager] Hardware server routine exited cleanly.");

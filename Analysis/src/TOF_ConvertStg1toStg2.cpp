@@ -1,5 +1,5 @@
-
 #include "TOF_ConvertStg1toStg2.h"
+#include "GRAMS_TOF_Config.h"
 
 ClassImp( TOF_ConvertStg1toStg2 );
 
@@ -36,13 +36,6 @@ int TOF_ConvertStg1toStg2::addBranches()
 	auto theChanConv = TOF_ChannelConversion::getInstance();
 	auto theAsicList = TOF_ActiveAsicList::getInstance();
 	auto thePaddle   = TOF_PaddleChannelMap::getInstance();
-	auto theCalib    = TOF_TdcQdcCalibration::getInstance();
-
-	thePaddle->dump();
-	
-	// Load specified or default calibration files
-  theCalib->readTdcCalib(fTdcPath.Data());
-  theCalib->readQdcCalib(fQdcPath.Data());
 
 	fStg1->setBranchAddress(); // duplicate
 	fStg1->getEntry(0);
@@ -71,8 +64,14 @@ int TOF_ConvertStg1toStg2::addBranches()
     auto eFine     = fStg1->getEFine()    ;
 
 		/// apply the calibration 
-		auto tdc_cal = theCalib->getCalibratedTime( TOF_Branch::fBranchT, channelID, tacID, frameID, tCoarse, tFine ); // t_begin
-		auto qdc_cal = theCalib->getCalibratedQDC( channelID, tacID, frameID, eCoarse, eFine, tCoarse, tdc_cal );
+		double tdc_cal(0);
+		double qdc_cal(0);
+		if( fCalib ) {
+		  tdc_cal = fCalib->getCalibratedTime( TOF_Branch::fBranchT, channelID, tacID, frameID, tCoarse, tFine ); // t_begin
+		  qdc_cal = fCalib->getCalibratedQDC( channelID, tacID, frameID, eCoarse, eFine, tCoarse, tdc_cal );
+		} else {
+			if(i == 0) std::cout << "[WARN] Calibration parameters are not loaded. Writing zeros to time/charge." << std::endl;
+		}
 
 		/// t_end
 		//auto ecoarse = eCoarse;
@@ -105,8 +104,6 @@ int TOF_ConvertStg1toStg2::addBranches()
 		ts_cpu.SetSec( cpuSec );
 		ts_cpu.SetNanoSec( cpuNsec );
 
-		//ts_pps = ts_cpu; // temporary dummy
-
 		fStg2->setStep1        ( step1     );
     fStg2->setStep2        ( step2     );
     fStg2->setStepBgin     ( stepBegin );
@@ -124,7 +121,6 @@ int TOF_ConvertStg1toStg2::addBranches()
     fStg2->setCalibratedTdc( tdc_cal   );
     fStg2->setCalibratedQdc( qdc_cal   );
 		fStg2->setTimeStampCPU ( &ts_cpu   );
-		//fStg2->setTimeStampPPS ( &ts_pps   );
 
 		fStg2->fillTTree(); 
 	}
@@ -132,8 +128,49 @@ int TOF_ConvertStg1toStg2::addBranches()
 	return TOF_GOOD;
 }
 
-void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2, const char* tdc_cal_tsv, const char* qdc_cal_tsv ) //, const char* asic_list_tsv )
+int TOF_ConvertStg1toStg2::loadCalibration( const std::string kTdcPath, const std::string kQdcPath ) 
 {
+	if( !kTdcPath.empty() && !kQdcPath.empty() ) {
+		fTdcPath = kTdcPath;
+		fQdcPath = kQdcPath;
+	}
+	else if( kTdcPath.empty() && kQdcPath.empty() ) return loadCalibration("");
+	else if( kTdcPath.empty() || kQdcPath.empty() ){
+		fTdcPath = kTdcPath;
+		fQdcPath = kQdcPath;
+		
+		std::string dir_config = GRAMS_TOF_Config::instance().getConfigDir();
+		if( kTdcPath.empty() ) fTdcPath = dir_config + "/tdc_calibration.tsv";
+	  if( kQdcPath.empty() ) fQdcPath = dir_config + "/qdc_calibration.tsv";
+	}
+			
+	fCalib = TOF_TdcQdcCalibration::getInstance();
+	return fCalib->readCalibrationFiles( fTdcPath, fQdcPath );
+}
+
+int TOF_ConvertStg1toStg2::loadCalibration( const std::string kDirPath ) 
+{
+  std::string calibDirPath;
+  
+	if( kDirPath.empty() ) 
+    calibDirPath = GRAMS_TOF_Config::instance().getConfigDir();
+	else
+		calibDirPath = kDirPath;
+	
+	if( !std::filesystem::is_directory( calibDirPath ) ) {
+		std::cout << "[ERR] TOF_ConvertStg1toStg2::convertStg1ToStg2_wCalibDir() - Provide a calibration DIRECTORY path" << std::endl;
+		return TOF_ERR;
+	}
+			
+	fCalib = TOF_TdcQdcCalibration::getInstance();
+	return fCalib->readCalibrationFiles( calibDirPath );
+}
+
+void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2, const char* tdc_cal_tsv, const char* qdc_cal_tsv  )
+{
+	/// load calibration files
+	if( !fCalib ) loadCalibration(tdc_cal_tsv, qdc_cal_tsv);
+
 	if( !fStg1 ) setClassStg1();
 	if( !fStg2 ) setClassStg2();
 
@@ -147,22 +184,9 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
 		kPathStg2 = Form( "%s/%s.stg2.root", dir.Data(), name2.Data() );
 	}
 
-	fTdcPath = tdc_cal_tsv;
-	fQdcPath = qdc_cal_tsv;
-
-	/// active asic list
-	auto theAsicList = TOF_ActiveAsicList::getInstance();
-	//if( strcmp(asic_list_tsv, "")!=0 ) {
-	//	theAsicList->setInputFile( (std::string) asic_list_tsv );
-	//}
-	//else {
-	//	theAsicList->useDefaultInputFile();
-	//}
-	//theAsicList->readActiveAsicList();
-
 	/// stg2 TTree
 	fStg2->setOutputPath( kPathStg2, "recreate" );
-	addBranches();
+	addBranches(); // <- this required calibration files
 	fStg2->getTTree()->Write();
 	if( fStg2->getTFile()->GetListOfKeys()->GetEntries()>1 ) fStg2->getTFile()->Purge();
 	std::cout << "[INFO] Stg2 File Generated With Timestamp: " << fStg2->getFilePath() << std::endl;
@@ -173,5 +197,7 @@ void TOF_ConvertStg1toStg2::convertStg1ToStg2( const char* kPathStg1, const char
     
   delete fStg2; 
   fStg2 = nullptr;
+
+	return;
 }
 

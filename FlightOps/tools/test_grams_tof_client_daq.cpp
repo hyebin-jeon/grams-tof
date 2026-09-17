@@ -16,8 +16,11 @@
 #include <fcntl.h>
 #include <iomanip>
 #include <condition_variable>
+#include <mosquitto.h>
 
+#include "GRAMS_TOF_CommandDefs.h"
 #include "GRAMS_TOF_CommandCodec.h"
+#include "GRAMS_TOF_LogCodec.h"
 
 // ---------- Global variables ----------
 std::mutex logMutex;
@@ -33,6 +36,8 @@ std::condition_variable callbackCv;
 uint16_t activeTargetCode = 0;
 uint16_t lastFinishedCmd = 0;
 uint32_t lastCmdStatus = 0;
+
+struct mosquitto* g_mosq = nullptr;
 
 // ---------- Logging helper ----------
 void addLog(const std::string& msg) {
@@ -58,12 +63,11 @@ void logPacketSent(const GRAMS_TOF_CommandCodec::Packet& pkt) {
 ssize_t readAll(int sock, char* buffer, size_t len) {
     size_t totalRead = 0;
     while (totalRead < len) {
-        // Calculate remaining bytes to read
         ssize_t n = recv(sock, buffer + totalRead, len - totalRead, 0);
 
         if (n == 0) return 0;
         if (n < 0) {
-            if (errno == EINTR) continue; // Retry if interrupted by signal
+            if (errno == EINTR) continue;
             return -1;
         }
         totalRead += n;
@@ -89,6 +93,21 @@ void sendPacket(int sock, const GRAMS_TOF_CommandCodec::Packet& pkt) {
         ssize_t sent = send(sock, data.data() + totalSent, data.size() - totalSent, 0);
         if (sent < 0) throw std::runtime_error("Send failed");
         totalSent += sent;
+    }
+}
+
+// Helper to convert LogLevel byte to String
+std::string getLogLevelString(uint8_t level) {
+    switch (level) {
+        case 0: return "TRACE";
+        case 1: return "DEBUG";
+        case 2: return "INFO";
+        case 3: return "NOTICE";
+        case 4: return "INFO";
+        case 5: return "WARN";
+        case 6: return "ERROR";
+        case 7: return "CRITICAL";
+        default: return "LOG(" + std::to_string(level) + ")";
     }
 }
 
@@ -118,7 +137,6 @@ int setupServer(int port) {
 void commandServerThread(int port) {
     int serverSock = -1;
     try {
-        // Initialize the server socket ONCE and keep it open
         serverSock = setupServer(port);
         addLog("[CommandServer] Listening on port " + std::to_string(port));
 
@@ -126,7 +144,6 @@ void commandServerThread(int port) {
             sockaddr_in clientAddr{};
             socklen_t clientLen = sizeof(clientAddr);
             
-            // Wait for a connection (this blocks until a DAQ connects)
             int conn = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
             
             if (conn < 0) {
@@ -137,32 +154,27 @@ void commandServerThread(int port) {
                 continue;
             }
 
-            // Store the new connection in the global atomic
             commandClientSock.store(conn); 
             addLog("[CommandServer] DAQ client connected (FD=" + std::to_string(conn) + ")");
 
             char buffer[1024];
             while (running) {
-                // Check if the DAQ sent any data or closed the connection
-                // This read is necessary to detect when the DAQ closes its end
                 ssize_t n = recv(commandClientSock.load(), buffer, sizeof(buffer)-1, 0);
 
                 if (n > 0) {
-                    // Data received (e.g., ACKs from the DAQ)
+                    // Data received
                 } else if (n == 0) {
                     addLog("[CommandServer] DAQ disconnected gracefully");
-                    break; // Exit inner loop to wait for a new connection
+                    break;
                 } else {
-                    // Handle errors (EWOULDBLOCK is ignored as we are in a simple loop)
                     if (errno != EWOULDBLOCK && errno != EAGAIN) {
                         addLog("[CommandServer] Connection error: " + std::string(std::strerror(errno)));
-                        break; // Exit inner loop to wait for a new connection
+                        break;
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 }
             }
 
-            // Connection lost: Clean up this specific client socket
             int fd_to_close = commandClientSock.exchange(-1);
             if (fd_to_close >= 0) {
                 ::close(fd_to_close);
@@ -174,7 +186,6 @@ void commandServerThread(int port) {
         addLog(std::string("[CommandServer] Fatal Exception: ") + e.what());
     }
 
-    // Final cleanup of the listener socket when the program exits
     if (serverSock >= 0) {
         ::close(serverSock);
     }
@@ -212,7 +223,8 @@ void eventServerThread(int port) {
                     GRAMS_TOF_CommandCodec::Packet respPkt;
                     while (streamBuffer.size() >= 14 && GRAMS_TOF_CommandCodec::parse(streamBuffer, respPkt)) {
                         
-                        if (respPkt.code == 0x5FFE && respPkt.argc >= 2) {
+                        // 1. Handle Command Callback Response (0x5FFE)
+                        if (respPkt.code == static_cast<uint16_t>(TOFCommandCode::CALLBACK) && respPkt.argc >= 2) {
                             uint16_t reportedCmd = static_cast<uint16_t>(respPkt.argv[0]);
                             uint32_t status = static_cast<uint32_t>(respPkt.argv[1]);
                         
@@ -230,13 +242,42 @@ void eventServerThread(int port) {
                                 callbackCv.notify_all();
                             }
                         }
-                    
-                        // 2. Erase ONLY the parsed packet length from the buffer
+                        // 2. Handle Remote Quill Logger Stream Packet (0x5401)
+                        else if (respPkt.code == static_cast<uint16_t>(TOFCommandCode::LOGGER_DATA_STREAM)) {
+                            GRAMS_TOF_LogCodec::LogData logData;
+                            if (GRAMS_TOF_LogCodec::decode(respPkt, logData)) {
+                                std::stringstream ss;
+                                ss << "[REMOTE-" << getLogLevelString(logData.level) << "] "
+                                   << "[" << logData.component << "] "
+                                   << logData.message;
+                                addLog(ss.str());
+                            }
+                        }
+
+                        // --- MQTT Forwarding Logic ---
+                        // Forward telemetry packet (Histograms, Logs, etc.) directly to MQTT
+                        if (g_mosq) {
+                            auto wireData = GRAMS_TOF_CommandCodec::serialize(respPkt);
+                            int ret = mosquitto_publish(
+                                g_mosq,
+                                nullptr,
+                                "TOF_ground_telemetry",
+                                static_cast<int>(wireData.size()),
+                                wireData.data(),
+                                0,
+                                false
+                            );
+                            if (ret != MOSQ_ERR_SUCCESS) {
+                                addLog("[MQTT] Failed to publish packet to broker");
+                            }
+                        }
+
+                        // Erase parsed packet length from the buffer
                         size_t parsedLen = GRAMS_TOF_CommandCodec::getPacketSize(respPkt);
                         if (parsedLen <= streamBuffer.size()) {
                             streamBuffer.erase(streamBuffer.begin(), streamBuffer.begin() + parsedLen);
                         } else {
-                            break; // Guard against unexpected size calculations
+                            break;
                         }
                     }
 
@@ -306,7 +347,6 @@ void pythonBridgeThread(int port) {
                                 args.push_back(std::stoi(tokens[i]));
                             }
                         
-                            // Phase 1: Set callback state under lock, then release immediately
                             {
                                 std::lock_guard<std::mutex> lock(callbackMutex);
                                 activeTargetCode = targetCode;
@@ -314,14 +354,12 @@ void pythonBridgeThread(int port) {
                                 lastCmdStatus = 0;
                             }
                         
-                            // Phase 2: Send packet without holding callbackMutex
                             auto pkt = buildPacket(targetCode, args);
                             sendPacket(commandClientSock.load(), pkt);
                             logPacketSent(pkt);
                             
                             addLog("[PythonBridge] Command sent. Waiting for 0x5FFE callback...");
                         
-                            // Phase 3: Lock only to block on condition variable waiting for EventServer
                             std::unique_lock<std::mutex> lock(callbackMutex);
                             bool finished = callbackCv.wait_for(lock, std::chrono::seconds(3600), [targetCode]() {
                                 return lastFinishedCmd == targetCode;
@@ -329,7 +367,6 @@ void pythonBridgeThread(int port) {
                         
                             activeTargetCode = 0;
                         
-                            // Phase 4: Send execution result back to external Python client
                             if (finished && lastCmdStatus == 0) {
                                 std::string ack = "DONE:" + tokens[0] + "\n";
                                 send(conn, ack.c_str(), ack.size(), 0);
@@ -383,10 +420,27 @@ void heartbeatTask() {
 
 // ---------- Main ----------
 int main() {
+    // Initialize Mosquitto MQTT Library
+    mosquitto_lib_init();
+    g_mosq = mosquitto_new("DummyHub_Forwarder", true, nullptr);
+    if (g_mosq) {
+        if (mosquitto_connect(g_mosq, "localhost", 1883, 60) == MOSQ_ERR_SUCCESS) {
+            mosquitto_loop_start(g_mosq);
+        } else {
+            g_mosq = nullptr;
+        }
+    }
+
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+        init_pair(1, COLOR_CYAN, -1);
+    }
 
     int rows, cols;
     getmaxyx(stdscr, rows, cols);
@@ -404,7 +458,6 @@ int main() {
 
     std::string inputStr;
 
-    // Draw initial input window with prompt
     mvwprintw(inputWin, 1, 1, "> ");
     wmove(inputWin, 1, 3);
     wrefresh(inputWin);
@@ -418,18 +471,25 @@ int main() {
     std::thread tPythonBridge(pythonBridgeThread, 50008);
 
     while (running) {
-        // --- Update log window ---
         {
             std::lock_guard<std::mutex> lock(logMutex);
             while (!logQueue.empty()) {
                 std::string msg = logQueue.front();
                 logQueue.pop();
-                wprintw(logWin, "%s\n", msg.c_str());
+
+                bool isRemoteLog = (msg.rfind("[REMOTE-", 0) == 0);
+
+                if (isRemoteLog && has_colors()) {
+                    wattron(logWin, COLOR_PAIR(1) | A_BOLD);
+                    wprintw(logWin, "%s\n", msg.c_str());
+                    wattroff(logWin, COLOR_PAIR(1) | A_BOLD);
+                } else {
+                    wprintw(logWin, "%s\n", msg.c_str());
+                }
             }
-            wrefresh(logWin);  // refresh log window first
+            wrefresh(logWin);
         }
-    
-        // --- Handle input ---
+
         int ch = wgetch(inputWin);
         if (ch != ERR) {
             if (ch == '\n') {
@@ -447,8 +507,6 @@ int main() {
 
                     if (commandClientSock >= 0) {
                         try {
-                            auto pkt = GRAMS_TOF_CommandCodec::Packet();
- 
                             std::vector<int> args;
                             std::vector<std::string> tokens;
                             std::istringstream iss(inputStr);
@@ -458,9 +516,7 @@ int main() {
                             }
                                 
                             if (!tokens.empty()) {
-                                // First token is command code
                                 auto code = std::stoul(tokens[0], nullptr, 0);
-                                // Remaining tokens are arguments
                                 for (size_t i = 1; i < tokens.size(); ++i) {
                                     args.push_back(std::stoi(tokens[i]));
                                 }
@@ -488,13 +544,11 @@ int main() {
                 inputStr.push_back(ch);
             }
     
-            // redraw input line
             wclear(inputWin);
             box(inputWin, 0, 0);
             mvwprintw(inputWin, 1, 1, "> %s", inputStr.c_str());
         }
     
-        // Always move cursor to inputWin at the end
         wmove(inputWin, 1, 3 + inputStr.size());
         wrefresh(inputWin);
     
@@ -507,6 +561,13 @@ int main() {
     tHeartbeat.join();
     tPythonBridge.join();
 
+    // Cleanup Mosquitto
+    if (g_mosq) {
+        mosquitto_loop_stop(g_mosq, true);
+        mosquitto_destroy(g_mosq);
+    }
+    mosquitto_lib_cleanup();
+
     delwin(logWin);
     delwin(inputWin);
     endwin();
@@ -514,4 +575,3 @@ int main() {
     std::cout << "Exiting test DAQ server." << std::endl;
     return 0;
 }
-

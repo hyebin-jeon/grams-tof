@@ -5,6 +5,8 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "include/*.h")
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MOSQUITTO REQUIRED libmosquitto)
 
 ############################################################################################################
 # Platform-specific build control
@@ -30,13 +32,12 @@ else()
     target_link_libraries(GramsTofFlightOpsLib PUBLIC
         pybind11::embed
         Python3::Python
+        GramsTofCommonLib
         GramsTofDaqdLib
-        GramsTofInihLib
         GramsTofScriptsCLib
         GramsTofGroundOpsLib
         GramsTofAnalysisLib
         GramsTofAnalysisScriptsCLib
-        fmt::fmt
         rt
     )
 
@@ -61,7 +62,7 @@ else()
 
     add_executable(test_grams_tof_client_daq tools/test_grams_tof_client_daq.cpp)
     #target_link_libraries(test_grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11 ncursesw)
-    target_link_libraries(test_grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11 ncursesw tinfow)
+    target_link_libraries(test_grams_tof_client_daq PRIVATE GramsTofFlightOpsLib cli11 ncursesw tinfow ${MOSQUITTO_LIBRARIES})
  
     add_executable(test_grams_tof_config tools/test_grams_tof_config.cpp)
     target_link_libraries(test_grams_tof_config PRIVATE GramsTofFlightOpsLib)
@@ -109,29 +110,19 @@ else()
     install(DIRECTORY sh/               DESTINATION ${CMAKE_INSTALL_PREFIX}/sh)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_PREFIX}/include/FlightOps)
 
-    add_library(GramsTofLoggerInclude INTERFACE)
-    target_include_directories(GramsTofLoggerInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include) 
-
     # ----------------- External Libraries -----------------
     add_subdirectory(external/base)
     add_subdirectory(external/rawdata)
     add_subdirectory(external/daqd)
     add_subdirectory(external/pybind11)
-    add_subdirectory(external/inih)
     add_subdirectory(external/scripts_c)
     add_subdirectory(external/CLI11-2.2.0)
     add_subdirectory(external/shota)
+    add_subdirectory(daemon)
 
     if(INSTALL_KERNEL_MODULE)
         add_subdirectory(external/kernel)
     endif()
-
-    # ----------------- fmt Library -----------------
-    set(FMT_INSTALL ON CACHE BOOL "" FORCE)
-    set(FMT_STATIC ON CACHE BOOL "" FORCE)
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-    add_subdirectory(external/fmt-7.1.3)
-    set_target_properties(fmt PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 endif()
 
