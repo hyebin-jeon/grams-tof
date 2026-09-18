@@ -801,9 +801,8 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 
             bool output = analyzer_.runPetsysProcessTofQAIridium(
               //config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
-		          //config.getHistDir()
-		          //config.getString("main", "active_asic_list") 
-              inputFile, config.getHistDir(), config.getString("main", "active_asic_list")
+	      //config.getHistDir()
+              inputFile, config.getHistDir()
             );
 
             if (!output) {
