@@ -7,17 +7,13 @@ void TOF_TreeDataStg2::setBranchAddress()
 {
 	if(!fTTree ) {
 		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
-		//fTTree = new TTree("data", "data");
 		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
-		//fTTree = new TTree( Form("stg%d", getStgNb()), Form("stg%d", getStgNb()) );
 	}
 
 	int status;
 
   status = fTTree->SetBranchAddress("ts_cpu"    , &ts_cpu    );
 	if (status < 0) std::cerr << "[ERR] Failed to set address for ts_cpu (Status: " << status << ")" << std::endl;
-  //status = fTTree->SetBranchAddress("ts_pps"    , &ts_pps    );
-	//if (status < 0) std::cerr << "[ERR] Failed to set address for ts_pps (Status: " << status << ")" << std::endl;
   status = fTTree->SetBranchAddress("step1"    , &step1    );
 	if (status < 0) std::cerr << "[ERR] Failed to set address for step1 (Status: " << status << ")" << std::endl;
   status = fTTree->SetBranchAddress("step2"    , &step2    );
@@ -55,12 +51,10 @@ void TOF_TreeDataStg2::makeBranches()
 {
 	if(!fTTree ) {
 		std::cout << Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
-		//fTTree = new TTree("data", "data");
 		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	fTTree->Branch("ts_cpu"     , &ts_cpu, 32000, 0);
-	//fTTree->Branch("ts_pps"     , &ts_pps, 32000, 0);
 	fTTree->Branch("step1"      , &step1       );
 	fTTree->Branch("step2"      , &step2       );
 	fTTree->Branch("frameID"    , &frameID     );

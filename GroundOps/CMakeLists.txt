@@ -12,6 +12,7 @@ install(PROGRAMS
 # 2. Install the SQL schema into ground/sql
 install(FILES 
     sql/create_tof_monitor.sql 
+    sql/create_tof_logs.sql 
     DESTINATION ${GROUND_INSTALL_DIR}/sql
 )
 

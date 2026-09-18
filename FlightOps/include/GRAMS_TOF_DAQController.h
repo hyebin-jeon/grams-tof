@@ -10,7 +10,6 @@
 #include "GRAMS_TOF_RuntimeError.h"
 #include "GRAMS_TOF_Config.h"
 #include "GRAMS_TOF_CommandCodec.h"
-#include "GRAMS_TOF_CommandDispatch.h"
 
 #include <string>
 #include <atomic>
@@ -25,7 +24,6 @@ public:
         int eventTargetPort = 50006;
         std::string remoteEventHub = "127.0.0.1";
         std::string remoteCommandHub = "127.0.0.1";
-        //std::string configFile = "/home/ksakai/work/source/grams-tof-library/00build/00install/config/config.ini"; 
         std::string configFile = ""; 
         std::string logFile = "log/daq_log.txt";
     };
@@ -37,6 +35,10 @@ public:
     void onNetworkResetRequested() override {
         networkResetRequested_ = true; 
     }
+
+    // --- Accessors ---
+    // Getter for eventClient_ required by tof_daq to attach the logging sink
+    GRAMS_TOF_EventClient* getEventClient() const { return eventClient_.get(); }
 
 private:
     Config config_;
@@ -65,4 +67,3 @@ private:
     // Helper for the command handler logic
     void handleIncomingCommand(const GRAMS_TOF_CommandCodec::Packet& pkt);
 };
-

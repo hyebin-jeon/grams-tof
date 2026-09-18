@@ -6,6 +6,33 @@
 #include <sys/wait.h>
 #include <filesystem>
 
+namespace {
+
+std::vector<std::filesystem::path> findFiles(
+    const std::filesystem::path& directory,
+    const std::string& prefix,
+    const std::string& extension)
+{
+    std::vector<std::filesystem::path> files;
+
+    if (!std::filesystem::exists(directory) || !std::filesystem::is_directory(directory)) return files;
+
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        if (!entry.is_regular_file()) continue;
+
+        const auto filename = entry.path().filename().string();
+
+        if (filename.compare(0, prefix.size(), prefix) == 0 &&
+            entry.path().extension() == extension) {
+            files.push_back(entry.path());
+        }
+    }
+
+    return files;
+}
+
+} // namespace
+
 GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     GRAMS_TOF_PythonIntegration& pyint,
     GRAMS_TOF_Analyzer& analyzer,
@@ -130,37 +157,6 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         });
     };
 
-/*
-    // RESET_DAQ
-    table_[TOFCommandCode::RESET_DAQ] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        return executeSimpleCommand(TOFCommandCode::RESET_DAQ, [&]() {
-            Logger::instance().info("[CommandDispatch][RESET] Initiating Reset (STOP -> START pipeline)...");
-    
-            // 1. Invoke the core logic of STOP_DAQ inline 
-            if (table_.count(TOFCommandCode::STOP_DAQ)) {
-                Logger::instance().info("[CommandDispatch][RESET] Step 1: Executing STOP sequence...");
-                table_[TOFCommandCode::STOP_DAQ](argv); 
-            }
-    
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    
-            // 2. Invoke the core logic of START_DAQ inline
-            if (table_.count(TOFCommandCode::START_DAQ)) {
-                Logger::instance().info("[CommandDispatch][RESET] Step 2: Executing START sequence...");
-                bool start_success = table_[TOFCommandCode::START_DAQ](argv);
-                
-                if (!start_success) {
-                    Logger::instance().error("[CommandDispatch][RESET] Pipeline failed: START_DAQ rejected initialization.");
-                    return false;
-                }
-            }
-    
-            Logger::instance().info("[CommandDispatch][RESET] System successfully cycled and restarted.");
-            return true;
-        });
-    };
-*/
-
     // RECONNECT_NETWORK
     table_[TOFCommandCode::RECONNECT_NETWORK] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::RECONNECT_NETWORK, [&]() {
@@ -234,25 +230,35 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             );
         });
     };
-  
+
     // READ_TEMPERATURE_SENSORS
     table_[TOFCommandCode::READ_TEMPERATURE_SENSORS] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Executing read_temperature_sensors.py script...");
+            
+            std::string outputFile = config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors", timestampStr, "log");
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--time");
             sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : 600.0));
             sArgs.push_back("--interval");
             sArgs.push_back(std::to_string(argv.size() > 1 ? static_cast<double>(argv[1]) : 60.0));
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors", timestampStr, "log"));
+            sArgs.push_back(outputFile);
             bool startup = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (startup) sArgs.push_back("--startup");
             bool debug = (argv.size() > 3) ? (argv[3] != 0) : false;
             if (debug) sArgs.push_back("--debug");
 
-            return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS, "read_temperature_sensors.py", sArgs);
+            std::string originalLogDir = config.getLogDir(false);
+            auto callback = [outputFile, originalLogDir](bool success) {
+                if (success) {
+                    GRAMS_TOF_Config::instance().linkVaultFileToOriginalDir(outputFile, originalLogDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS, "read_temperature_sensors.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in READ_TEMPERATURE_SENSORS");
             return false;
@@ -265,17 +271,26 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Executing single-shot temperature dump...");
             
+            std::string outputFile = config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors_single", timestampStr, "log");
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--record"); // Triggers startTempRecord() single-shot mode
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getLogDir(), "read_temperature_sensors_single", timestampStr, "log"));
+            sArgs.push_back(outputFile);
             
             bool startup = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (startup) sArgs.push_back("--startup");
             bool debug = (argv.size() > 3) ? (argv[3] != 0) : false;
             if (debug) sArgs.push_back("--debug");
 
-            return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE, "read_temperature_sensors.py", sArgs);
+            std::string originalLogDir = config.getLogDir(false);
+            auto callback = [outputFile, originalLogDir](bool success) {
+                if (success) {
+                    GRAMS_TOF_Config::instance().linkVaultFileToOriginalDir(outputFile, originalLogDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE, "read_temperature_sensors.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in READ_TEMPERATURE_SENSORS_SINGLE");
             return false;
@@ -288,13 +303,17 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Starting full threshold calibration in background...");
             
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr);
+
+            std::string mode = "all"; 
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr));
+            sArgs.push_back(outPathPrefix);
             sArgs.push_back("--mode");
-            sArgs.push_back("all");
+            sArgs.push_back(mode);
             sArgs.push_back("--nreads-noise");
             sArgs.push_back(std::to_string(argv.size() > 0 ? argv[0] : 4));
             sArgs.push_back("--nreads-dark");
@@ -302,54 +321,65 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             bool bias = (argv.size() > 2) ? (argv[2] != 0) : false;
             if (bias) sArgs.push_back("--ext-bias");
 
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION, "acquire_threshold_calibration.py", sArgs);
+            std::string originalCalibDir = config.getCalibrationDir(false);
+            auto callback = [outPathPrefix, originalCalibDir, mode](bool success) {
+                if (success) {
+                    auto& cfg = GRAMS_TOF_Config::instance();
+                    
+                    if (mode == "all" || mode == "baseline_noise") {
+                        cfg.linkVaultFileToOriginalDir(outPathPrefix + "_baseline.tsv", originalCalibDir);
+                        cfg.linkVaultFileToOriginalDir(outPathPrefix + "_noise.tsv", originalCalibDir);
+                    }
+                    if (mode == "all" || mode == "dark") {
+                        cfg.linkVaultFileToOriginalDir(outPathPrefix + "_dark.tsv", originalCalibDir);
+                    }
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION, "acquire_threshold_calibration.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION");
             return false;
         }
     };
 
-    // ACQUIRE_THRESHOLD_CALIBRATION_BN (Baseline and Noise only) ---
+    // ACQUIRE_THRESHOLD_CALIBRATION_BN (Baseline & Noise only) ---
     table_[TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
             auto timestampStr = config.getCurrentTimestamp();
-            Logger::instance().info("[CommandDispatch] Starting Baseline/Noise calibration in background...");
-    
+            Logger::instance().info("[CommandDispatch] Starting baseline & noise threshold calibration in background...");
+            
             std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr);
-    
+            std::string mode = "baseline_noise";
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
             sArgs.push_back(outPathPrefix);
             sArgs.push_back("--mode");
-            sArgs.push_back("baseline_noise");
+            sArgs.push_back(mode);
             sArgs.push_back("--nreads-noise");
             sArgs.push_back(std::to_string(argv.size() > 0 ? argv[0] : 4));
-            bool bias = (argv.size() > 2) ? (argv[2] != 0) : false;
+            bool bias = (argv.size() > 1) ? (argv[1] != 0) : false;
             if (bias) sArgs.push_back("--ext-bias");
-    
-            std::string generatedBaseline = outPathPrefix + "_baseline.tsv";
+
+            std::string originalCalibDir = config.getCalibrationDir(false);
             std::string stableConfigTarget = config.getConfigDir() + "/disc_calibration_baseline.tsv";
-    
-            auto callback = [generatedBaseline, stableConfigTarget](bool processSuccess) {
-                if (processSuccess) {
-                    try {
-                        auto& cfg = GRAMS_TOF_Config::instance();
-                        cfg.copyOrLink(generatedBaseline, stableConfigTarget, true);
-                        Logger::instance().info("[CommandDispatch] Centralized baseline symlink updated: {}", stableConfigTarget);
-                    } catch (const std::exception& e) {
-                        Logger::instance().error("[CommandDispatch] Symlink post-processing failed: {}", e.what());
-                    }
+
+            auto callback = [outPathPrefix, originalCalibDir, stableConfigTarget](bool success) {
+                if (success) {
+                    auto& cfg = GRAMS_TOF_Config::instance();
+                    std::string generatedBaseline = outPathPrefix + "_baseline.tsv";
+
+                    cfg.linkVaultFileToOriginalDir(generatedBaseline, originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + "_noise.tsv", originalCalibDir);
+
+                    cfg.copyOrLink(generatedBaseline, stableConfigTarget, true);
                 }
             };
-    
-            return executeManagedBackground(
-                TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN, 
-                "acquire_threshold_calibration.py", 
-                sArgs, 
-                callback
-            );
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_BN, "acquire_threshold_calibration.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_BN");
             return false;
@@ -359,28 +389,34 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     // ACQUIRE_THRESHOLD_CALIBRATION_D (Dark counts only) ---
     table_[TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         try {
-            Logger::instance().info("[CommandDispatch] Starting Dark counts calibration in background...");
-    
-            // 1. Generate new timestamp for dark count output files
-            std::string currentTs = config.getCurrentTimestamp();
-    
+            auto timestampStr = config.getCurrentTimestamp();
+            Logger::instance().info("[CommandDispatch] Starting dark threshold calibration in background...");
+            
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr);
+            std::string mode = "dark";
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            // Output prefix inside current vault dir (e.g. disc_calibration_2026-07-21_18-59-35.432Z)
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", currentTs));
+            sArgs.push_back(outPathPrefix);
             sArgs.push_back("--mode");
-            sArgs.push_back("dark");
+            sArgs.push_back(mode);
             sArgs.push_back("--nreads-dark");
             sArgs.push_back(std::to_string(argv.size() > 0 ? argv[0] : 4));
-            
-            bool bias = (argv.size() > 2) ? (argv[2] != 0) : false;
+            bool bias = (argv.size() > 1) ? (argv[1] != 0) : false;
             if (bias) sArgs.push_back("--ext-bias");
-    
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D, "acquire_threshold_calibration.py", sArgs);
-        } catch (const std::exception& e) {
-            Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_D: {}", e.what());
+
+            std::string originalCalibDir = config.getCalibrationDir(false);
+            auto callback = [outPathPrefix, originalCalibDir](bool success) {
+                if (success) {
+                    GRAMS_TOF_Config::instance().linkVaultFileToOriginalDir(outPathPrefix + "_dark.tsv", originalCalibDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D, "acquire_threshold_calibration.py", sArgs, callback);
+        } catch (...) {
+            Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_THRESHOLD_CALIBRATION_D");
             return false;
         }
     };
@@ -390,14 +426,27 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Starting QDC calibration in background...");
+            
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr);
 
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr));
+            sArgs.push_back(outPathPrefix);
 
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_QDC_CALIBRATION, "acquire_qdc_calibration.py", sArgs);
+            std::string originalCalibDir = config.getCalibrationDir(false);
+            auto callback = [outPathPrefix, originalCalibDir](bool success) {
+                if (success) {
+                    auto& cfg = GRAMS_TOF_Config::instance();
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".bins", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".idxf", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".modf", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".rawf", originalCalibDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_QDC_CALIBRATION, "acquire_qdc_calibration.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_QDC_CALIBRATION");
             return false;
@@ -409,14 +458,28 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         try {
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Starting TDC calibration in background...");
+            
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr);
 
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr));
+            sArgs.push_back(outPathPrefix);
 
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_TDC_CALIBRATION, "acquire_tdc_calibration.py", sArgs);
+            std::string originalCalibDir = config.getCalibrationDir(false);
+            auto callback = [outPathPrefix, originalCalibDir](bool success) {
+                if (success) {
+                    auto& cfg = GRAMS_TOF_Config::instance();
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".bins", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".idxf", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + "_list.tmp", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".modf", originalCalibDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".rawf", originalCalibDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_TDC_CALIBRATION, "acquire_tdc_calibration.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_TDC_CALIBRATION");
             return false;
@@ -429,19 +492,31 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getCurrentTimestamp();
             Logger::instance().info("[CommandDispatch] Starting SiPM data acquisition in background...");
 
+            std::string outPathPrefix = config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr);
+
             std::vector<std::string> sArgs;
             sArgs.push_back("--config");
             sArgs.push_back(config.getConfigFilePath());
             sArgs.push_back("-o");
-            sArgs.push_back(config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr));
+            sArgs.push_back(outPathPrefix);
             sArgs.push_back("--time");
             sArgs.push_back(std::to_string(argv.size() > 0 ? static_cast<double>(argv[0]) : sipmDataAcquisitionTime_.load()));
             sArgs.push_back("--mode");
             sArgs.push_back("qdc"); // Defaulting to QDC mode as per your previous logic
             bool hw_trig = (argv.size() > 1) ? (argv[1] != 0) : false;
             if (hw_trig) sArgs.push_back("--enable-hw-trigger");
-            
-            return executeManagedBackground(TOFCommandCode::ACQUIRE_SIPM_DATA, "acquire_sipm_data.py", sArgs);
+           
+            std::string originalDataDir = config.getSTG0Dir(false);
+            auto callback = [outPathPrefix, originalDataDir](bool success) {
+                if (success) {
+                    auto& cfg = GRAMS_TOF_Config::instance();
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".idxf", originalDataDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".modf", originalDataDir);
+                    cfg.linkVaultFileToOriginalDir(outPathPrefix + ".rawf", originalDataDir);
+                }
+            };
+
+            return executeManagedBackground(TOFCommandCode::ACQUIRE_SIPM_DATA, "acquire_sipm_data.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in ACQUIRE_SIPM_DATA");
             return false;
@@ -492,15 +567,30 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
     table_[TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "disc_calibration", "_noise.tsv");
-            Logger::instance().info("[CommandDispatch] Running threshold calibration...");
-            auto output = analyzer_.runPetsysProcessThresholdCalibration(
-                config.getConfigFilePath(),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr),
-                config.makeFilePathWithTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv"),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr, "root")
+            Logger::instance().info("[CommandDispatch] Running threshold calibration for timestamp: {}", timestampStr);
+
+            std::string inputPrefix = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr);
+            std::string outputTsv   = config.makeFilePathWithTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, "tsv");
+            std::string outputRoot  = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "disc_calibration", timestampStr, "root");
+
+            bool output = analyzer_.runPetsysProcessThresholdCalibration(
+                config.getConfigFilePath(), inputPrefix, outputTsv, outputRoot
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getDiscDir(), "disc_calibration", timestampStr, ".tsv", true),
-                              config.getAbsolutePath("main", "disc_calibration_table"), true);
+
+            if (output) {
+                std::string originalDiscDir  = config.getDiscDir(false);
+                std::string originalCalibDir = config.getCalibrationDir(false);
+
+                config.linkVaultFileToOriginalDir(outputTsv, originalDiscDir);
+                config.linkVaultFileToOriginalDir(outputRoot, originalCalibDir);
+
+                std::filesystem::path inputPath(inputPrefix);
+                for (const auto& entry : findFiles(inputPath.parent_path(), inputPath.filename().string() + "_", ".svg")) {
+                    config.linkVaultFileToOriginalDir(entry.string(), originalCalibDir);
+                }
+
+                config.copyOrLink(outputTsv, config.getAbsolutePath("main", "disc_calibration_table"), true);
+            }
             return output;
         });
     };
@@ -510,20 +600,39 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::PROCESS_TDC_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "tdc_calibration");
             Logger::instance().info("[CommandDispatch] Running TDC calibration...");
+
             bool doSorting = argv.size() > 0 ? (argv[0] != 0) : true;
             bool keepTmp   = argv.size() > 1 ? (argv[1] != 0) : false;
             float nominalM = argv.size() > 2 ? static_cast<float>(argv[2]) : 200.0f;
+
+            std::string inputPrefix  = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr);
+            std::string outputPrefix = config.makeFilePathWithTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr);
+            std::string tmpPrefix    = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr);
+
             auto output = analyzer_.runPetsysProcessTdcCalibration(
-                config.getConfigFilePath(),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr),
-                config.makeFilePathWithTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "tdc_calibration", timestampStr),
-                doSorting,
-                keepTmp,
-                nominalM
+                config.getConfigFilePath(), inputPrefix, outputPrefix, tmpPrefix, doSorting, keepTmp, nominalM
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr, "tsv"),
-                              config.getAbsolutePath("main", "tdc_calibration_table"), true);
+
+            if (output) {
+                std::string originalTdcDir   = config.getTDCDir(false);
+                std::string originalCalibDir = config.getCalibrationDir(false);
+
+                std::string outputTsv = outputPrefix + ".tsv";
+                config.linkVaultFileToOriginalDir(outputTsv, originalTdcDir);
+
+
+                std::filesystem::path tmpPath(tmpPrefix);
+                for (const auto& entry : findFiles(tmpPath.parent_path(), tmpPath.filename().string() + "_", ".root")) {
+                    config.linkVaultFileToOriginalDir(entry.string(), originalCalibDir);
+                }
+                for (const auto& entry : findFiles(tmpPath.parent_path(), tmpPath.filename().string() + "_", ".svg")) {
+                    config.linkVaultFileToOriginalDir(entry.string(), originalCalibDir);
+                }
+
+                config.copyOrLink(config.getFileByTimestamp(config.getTDCDir(), "tdc_calibration", timestampStr, "tsv"),
+                                  config.getAbsolutePath("main", "tdc_calibration_table"), true);
+            }
+
             return output;
         });
     };
@@ -533,38 +642,63 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::PROCESS_QDC_CALIBRATION, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getCalibrationDir(), "qdc_calibration");
             Logger::instance().info("[CommandDispatch] Running QDC calibration...");
+
             bool doSorting = argv.size() > 0 ? (argv[0] != 0) : true;
             bool keepTmp   = argv.size() > 1 ? (argv[1] != 0) : false;
             float nominalM = argv.size() > 2 ? static_cast<float>(argv[2]) : 200.0f;
+
+            std::string inputPrefix  = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr);
+            std::string outputPrefix = config.makeFilePathWithTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr);
+            std::string tmpPrefix    = config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr);
+
             auto output = analyzer_.runPetsysProcessQdcCalibration(
-                config.getConfigFilePath(),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr),
-                config.makeFilePathWithTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr),
-                config.makeFilePathWithTimestamp(config.getCalibrationDir(), "qdc_calibration", timestampStr),
-                doSorting,
-                keepTmp,
-                nominalM
+                config.getConfigFilePath(), inputPrefix, outputPrefix, tmpPrefix, doSorting, keepTmp, nominalM
             );
-            config.copyOrLink(config.getFileByTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr, "tsv"),
-                              config.getAbsolutePath("main", "qdc_calibration_table"), true);
+
+            if (output) {
+                std::string originalQdcDir   = config.getQDCDir(false);
+                std::string originalCalibDir = config.getCalibrationDir(false);
+
+                std::string outputTsv = outputPrefix + ".tsv";
+                config.linkVaultFileToOriginalDir(outputTsv, originalQdcDir);
+
+                std::filesystem::path tmpPath(tmpPrefix);
+                for (const auto& entry : findFiles(tmpPath.parent_path(), tmpPath.filename().string() + "_", ".root")) {
+                    config.linkVaultFileToOriginalDir(entry.string(), originalCalibDir);
+                }
+
+                for (const auto& entry : findFiles(tmpPath.parent_path(), tmpPath.filename().string() + "_", ".svg")) {
+                    config.linkVaultFileToOriginalDir(entry.string(), originalCalibDir);
+                }
+
+                config.copyOrLink(config.getFileByTimestamp(config.getQDCDir(), "qdc_calibration", timestampStr, "tsv"),
+                                  config.getAbsolutePath("main", "qdc_calibration_table"), true);
+            }
+
             return output;
         });
     };
-
 
     // CONVERT_RAW_TO_RAW
     table_[TOFCommandCode::CONVERT_RAW_TO_RAW] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::CONVERT_RAW_TO_RAW, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG0Dir(), "run");
-            Logger::instance().info("[CommandDispatch] Converting raw to raw...");
-            long long eventFractionToWrite = argv.size() > 1 ? static_cast<long long>(argv[0]) : 1024;
+            Logger::instance().info("[CommandDispatch] Converting Raw to Raw (ROOT format)...");
+            long long eventFractionToWrite = argv.size() > 0 ? static_cast<long long>(argv[0]) : 1024LL;
 
-            return analyzer_.runPetsysConvertRawToRaw(
-                config.getConfigFilePath(),
-                config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr),
-                config.makeFilePathWithTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
-                eventFractionToWrite
+            std::string inputPrefix = config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr);
+            std::string outputFile  = config.makeFilePathWithTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root");
+
+            auto output = analyzer_.runPetsysConvertRawToRaw(
+                config.getConfigFilePath(), inputPrefix, outputFile, eventFractionToWrite
             );
+
+            if (output) {
+                std::string originalStg1Dir = config.getSTG1Dir(false);
+                config.linkVaultFileToOriginalDir(outputFile, originalStg1Dir);
+            }
+
+            return output;
         });
     };
 
@@ -573,18 +707,24 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::CONVERT_RAW_TO_SINGLES, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG0Dir(), "run");
             Logger::instance().info("[CommandDispatch] Converting raw to singles...");
-            PETSYS::FILE_TYPE fileType = argv.size() > 0 ? static_cast<PETSYS::FILE_TYPE>(argv[0]) : PETSYS::FILE_ROOT;
-            long long eventFractionToWrite = argv.size() > 1 ? static_cast<long long>(argv[1]) : 1024;
-            double fileSplitTime = argv.size() > 2 ? static_cast<double>(argv[2]) : 0.0;
 
-            return analyzer_.runPetsysConvertRawToSingles(
-                config.getConfigFilePath(),
-                config.getFileByTimestamp(config.getSTG0Dir(), "run", timestampStr),
-                config.makeFilePathWithTimestamp(config.getSTG1Dir(), "run", timestampStr, "root_singles"),
-                fileType,
-                eventFractionToWrite,
-                fileSplitTime
+            PETSYS::FILE_TYPE fileType     = argv.size() > 0 ? static_cast<PETSYS::FILE_TYPE>(argv[0]) : PETSYS::FILE_ROOT;
+            long long eventFractionToWrite = argv.size() > 1 ? static_cast<long long>(argv[1]) : 1024LL;
+            double fileSplitTime           = argv.size() > 2 ? static_cast<double>(argv[2]) : 0.0;
+
+            std::string inputPrefix = config.makeFilePathWithTimestamp(config.getSTG0Dir(), "run", timestampStr);
+            std::string outputFile  = config.makeFilePathWithTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1_singles.root");
+
+            auto output = analyzer_.runPetsysConvertRawToSingles(
+                config.getConfigFilePath(), inputPrefix, outputFile, fileType, eventFractionToWrite, fileSplitTime
             );
+
+            if (output) {
+                std::string originalStg1Dir = config.getSTG1Dir(false);
+                config.linkVaultFileToOriginalDir(outputFile, originalStg1Dir);
+            }
+
+            return output;
         });
     };
 
@@ -593,14 +733,28 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::CONVERT_STG1_TO_STG2, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().info("[CommandDispatch] Converting stg1 to stg2...");
-            return analyzer_.runPetsysConvertStg1ToStg2(
-		config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
-                config.getSTG2Dir(),
-                config.getString("main", "tdc_calibration_table"),
-                config.getString("main", "qdc_calibration_table")
-                //config.getAbsolutePath("main", "tdc_calibration_table"),
-                //config.getAbsolutePath("main", "tdc_calibration_table"),
+
+            //return analyzer_.runPetsysConvertStg1ToStg2(
+		        //    config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
+            //    config.getSTG2Dir(),
+            //    config.getString("main", "tdc_calibration_table"),
+            //    config.getString("main", "qdc_calibration_table")
+            //    //config.getAbsolutePath("main", "tdc_calibration_table"),
+            //    //config.getAbsolutePath("main", "tdc_calibration_table"),
+
+            std::string inputFile  = config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root");
+            std::string outputFile = config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root");
+
+            auto output = analyzer_.runPetsysConvertStg1ToStg2(
+                inputFile, config.getSTG2Dir()
             );
+
+            if (output) {
+                std::string originalStg2Dir = config.getSTG2Dir(false);
+                config.linkVaultFileToOriginalDir(outputFile, originalStg2Dir);
+            }
+
+            return output;
         });
     };
 
@@ -609,31 +763,56 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::PROCESS_QA_COIN, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().info("[CommandDispatch] Running TOF coin evt calculation...");
-            return analyzer_.runPetsysProcessTofCoinEvtQA(
-                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
-		config.getSTG2Dir(),
+
+            //return analyzer_.runPetsysProcessTofCoinEvtQA(
+            //    config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
+		        //    config.getSTG2Dir(),
+
+            std::string inputFile = config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root");
+            std::string rootFile  = config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.coin.root");
+            std::string pdfFile   = config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.coin.pdf");
+
+            auto output = analyzer_.runPetsysProcessTofCoinEvtQA(
+                inputFile, config.getSTG2Dir(),
                 config.getString("main", "tdc_calibration_table"),
                 config.getString("main", "qdc_calibration_table"),
-                {argv.size() > 0 ? static_cast<int>(argv[0]) : -1}
+                argv.size() > 0 ? static_cast<int>(argv[0]) : -1
             );
+
+            if (output) {
+                std::string originalStg2Dir = config.getSTG2Dir(false);
+                config.linkVaultFileToOriginalDir(rootFile, originalStg2Dir);
+                config.linkVaultFileToOriginalDir(pdfFile, originalStg2Dir);
+            }
+
+            return output;
         });
     };
 
-    // PROCESS_TOF_QA_IRIDIUM
+    // PROCESS_QA_IRIDIUM
     table_[TOFCommandCode::PROCESS_QA_IRIDIUM] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
         return executeSimpleCommand(TOFCommandCode::PROCESS_QA_IRIDIUM, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().info("[CommandDispatch] Running TOF Quality Assurance for Iridium...");
+
+            std::string inputFile = config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root");
+            std::string rootFile  = config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr, "stg2.iridiumQA.root");
+            std::string pdfFile   = config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr, "stg2.iridiumQA.pdf");
+
             bool output = analyzer_.runPetsysProcessTofQAIridium(
-                config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
-		config.getHistDir()
-		//config.getString("main", "active_asic_list") 
+              //config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
+	      //config.getHistDir()
+              inputFile, config.getHistDir()
             );
 
             if (!output) {
-                Logger::instance().error("[CommandDispatch] TOF Quality Assurance for Iridium is failed.");
+                Logger::instance().error("[CommandDispatch] TOF Quality Assurance for Iridium failed.");
                 return false;
-            } 
+            }
+
+            std::string originalHistDir = config.getHistDir(false);
+            config.linkVaultFileToOriginalDir(rootFile, originalHistDir);
+            config.linkVaultFileToOriginalDir(pdfFile, originalHistDir);
 
             auto path = config.getFileByTimestamp(config.getHistDir(), "run", timestampStr, "iridiumQA.root");
             auto monitorDataList = GRAMS_TOF_RootConverter::scanFile(path, 0);
@@ -644,7 +823,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             }
 
             for (const auto& data : monitorDataList) {
-                eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data); 
+                eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data);
             }
 
             Logger::instance().info("[CommandDispatch] Successfully streamed {} histograms.", monitorDataList.size());
@@ -819,8 +998,12 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::RESET_DAQ,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE,
                 TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
+                TOFCommandCode::START_ASIC_TEMP_RECORD,
                 TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::STOP_ASIC_TEMP_RECORD,
                 TOFCommandCode::CONVERT_RAW_TO_RAW,
+                TOFCommandCode::CONVERT_STG1_TO_STG2,
+                TOFCommandCode::PROCESS_QA_IRIDIUM,
                 TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE
             });
             macroLoopRunning_ = false;
@@ -885,17 +1068,14 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
 
     // DUMMY_TEST
     table_[TOFCommandCode::DUMMY_TEST] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
-        try {
+        return executeSimpleCommand(TOFCommandCode::DUMMY_TEST, [&]() {
             Logger::instance().info("[CommandDispatch] Handling dummy command for testing");
     
             // Optional: simulate some work
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
             return true; 
-        } catch (...) {
-            Logger::instance().error("[CommandDispatch] Exception in DUMMY_TEST");
-            return false; // signal failure
-        }
+        });
     };
 
     monitorRunning_ = true;

@@ -234,6 +234,7 @@ std::string GRAMS_TOF_Config::getCurrentTimestamp() const
     return oss.str();
 }
 
+/*
 void GRAMS_TOF_Config::copyOrLink(const std::string& srcPath, const std::string& dstPath, bool symlink) const
 {
     namespace fs = std::filesystem;
@@ -247,6 +248,12 @@ void GRAMS_TOF_Config::copyOrLink(const std::string& srcPath, const std::string&
         symlink ? "symlink" : "copy"
     );
 
+    std::error_code ec;
+    if (fs::equivalent(src, dst, ec)) {
+        Logger::instance().debug("[Config] Source and destination are the same path. Skipping copyOrLink: {}", src.string());
+        return;
+    }
+
     if (!fs::exists(src)) throw GRAMS_TOF_RuntimeError("[Config] Source file does not exist: " + src.string());
 
     if (fs::exists(dst) || fs::is_symlink(dst)) {
@@ -258,6 +265,132 @@ void GRAMS_TOF_Config::copyOrLink(const std::string& srcPath, const std::string&
     } else {
         fs::copy_file(src, dst, fs::copy_options::overwrite_existing);
     }
+}
+*/
+
+void GRAMS_TOF_Config::copyOrLink(const std::string& srcPathStr, const std::string& dstPathStr, bool symlink) const
+{
+    namespace fs = std::filesystem;
+    fs::path src(srcPathStr);
+    fs::path dst(dstPathStr);
+
+    Logger::instance().info(
+        "[Config] copyOrLink: src='{}', dst='{}', mode={}",
+        src.string(),
+        dst.string(),
+        symlink ? "symlink" : "copy"
+    );
+
+    std::error_code ec;
+
+    // Do nothing if the source does not exist
+    if (!fs::exists(src) && !fs::is_symlink(src)) {
+        Logger::instance().warn("[Config] copyOrLink: Source does not exist: {}", src.string());
+        return;
+    }
+
+    // (3) Skip if the source and destination point to the exact same file/directory
+    if (fs::exists(dst) && fs::equivalent(src, dst, ec)) {
+        Logger::instance().debug("[Config] copyOrLink: Source and destination are equivalent. Skipping: {}", src.string());
+        return;
+    }
+
+    // (1) Handle single file input
+    if (!fs::is_directory(src)) {
+        fs::path targetFilePath;
+
+        if (dst.has_extension()) {
+            // Check if any component in the parent path is blocked by a non-directory file
+            if (fs::exists(dst.parent_path()) && !fs::is_directory(dst.parent_path())) {
+                Logger::instance().error("[Config] copyOrLink: Parent path exists but is not a directory: {}", dst.parent_path().string());
+                return;
+            }
+            targetFilePath = dst;
+
+        } else {
+            // Safety guard: Ensure 'dst' is not accidentally a regular file
+            if (fs::exists(dst) && !fs::is_directory(dst)) {
+                Logger::instance().error("[Config] copyOrLink: Expected directory at dst, but found a regular file: {}", dst.string());
+                return;
+            }
+            targetFilePath = dst / src.filename();
+        }
+
+        // Safely create parent directories if they do not exist
+        if (!fs::exists(targetFilePath.parent_path())) {
+            fs::create_directories(targetFilePath.parent_path());
+        }
+
+        // Re-check equivalence after resolving the final target file path
+        if (fs::exists(targetFilePath) && fs::equivalent(src, targetFilePath, ec)) {
+            return;
+        }
+
+        // (4) Remove existing file or symlink at target location for overwriting
+        if (fs::exists(targetFilePath) || fs::is_symlink(targetFilePath)) {
+            fs::remove(targetFilePath);
+        }
+
+        if (symlink) {
+            fs::create_symlink(src, targetFilePath);
+        } else {
+            fs::copy_file(src, targetFilePath, fs::copy_options::overwrite_existing);
+        }
+        return;
+    }
+
+    // (2) Handle directory input
+    // Safety guard: Ensure 'dst' is not a regular file when 'src' is a directory
+    if (fs::exists(dst) && !fs::is_directory(dst)) {
+        Logger::instance().error("[Config] copyOrLink: Cannot copy/link directory src to a file dst: {}", dst.string());
+        return;
+    }
+
+    fs::path targetDir = dst;
+    if (!fs::exists(targetDir)) {
+        fs::create_directories(targetDir);
+    }
+
+    for (const auto& entry : fs::directory_iterator(src)) {
+        // Skip subdirectories since recursive directory copying/linking is not required
+        if (entry.is_directory()) continue;
+
+        fs::path fileSrc = entry.path();
+        fs::path fileDst = targetDir / fileSrc.filename();
+
+        // (3) Check equivalence for each file
+        if (fs::exists(fileDst) && fs::equivalent(fileSrc, fileDst, ec)) {
+            continue;
+        }
+
+        // (4) Remove existing file or symlink before overwriting
+        if (fs::exists(fileDst) || fs::is_symlink(fileDst)) {
+            fs::remove(fileDst);
+        }
+
+        if (symlink) {
+            fs::create_symlink(fileSrc, fileDst);
+        } else {
+            fs::copy_file(fileSrc, fileDst, fs::copy_options::overwrite_existing);
+        }
+    }
+}
+
+void GRAMS_TOF_Config::linkVaultFileToOriginalDir(const std::string& vaultFilePath, const std::string& originalDir) const 
+{
+    namespace fs = std::filesystem;
+    fs::path srcPath(vaultFilePath);
+    
+    if (!fs::exists(srcPath)) return;
+
+    fs::path targetDir(originalDir);
+    if (!fs::exists(targetDir)) {
+        fs::create_directories(targetDir);
+    }
+
+    fs::path dstPath = targetDir / srcPath.filename();
+    
+    copyOrLink(srcPath.string(), dstPath.string(), true);
 }
 
 int GRAMS_TOF_Config::getInt(const std::string& section, const std::string& key) const {

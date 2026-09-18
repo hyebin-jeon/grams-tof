@@ -38,13 +38,19 @@ enum class CommunicationCodes : uint16_t {
   HUB_Set_Link = construct_code(0x5, COM_SUBSYSTEM_HUB_MSK),
   HUB_Dummy1 = construct_code(0xF1, COM_SUBSYSTEM_HUB_MSK),
   HUB_Dummy2 = construct_code(0xF2, COM_SUBSYSTEM_HUB_MSK),
+  HUB_DCDC_ON = construct_code(0x0, COM_SUBSYSTEM_TOF_BIAS_MSK),
+  HUB_DCDC_OFF = construct_code(0x1, COM_SUBSYSTEM_TOF_BIAS_MSK),
+  HUB_Set_Voltage = construct_code(0x2, COM_SUBSYSTEM_TOF_BIAS_MSK),
+  HUB_Enable_Temp_Con = construct_code(0x3, COM_SUBSYSTEM_TOF_BIAS_MSK),
+  HUB_Disable_Temp_Con = construct_code(0x4, COM_SUBSYSTEM_TOF_BIAS_MSK),
+  HUB_Set_Default_Temp = construct_code(0x5, COM_SUBSYSTEM_TOF_BIAS_MSK),
 
   // PDU
   PGRAMS_COM_CODE_PDU(Cold_TPC_HV, 0x0),
   PGRAMS_COM_CODE_PDU(Cold_Charge_PreAmp, 0x2),
   PGRAMS_COM_CODE_PDU(Cold_SiPM_PreAmp, 0x4),
   PGRAMS_COM_CODE_PDU(Warm_TPC_Shaper, 0x6),
-  PGRAMS_COM_CODE_PDU(SiPM, 0x8),
+  PGRAMS_COM_CODE_PDU(Tof_Bias, 0x8),
   PGRAMS_COM_CODE_PDU(CAEN_P3V3, 0xA),
   PGRAMS_COM_CODE_PDU(CAEN_PM5V, 0xC),
   PGRAMS_COM_CODE_PDU(CAEN_P12V, 0xE),
@@ -56,6 +62,13 @@ enum class CommunicationCodes : uint16_t {
   PDU_SiPM4_VSET = construct_code(0x16, COM_SUBSYSTEM_PDU_MSK),
   PDU_SiPM5_VSET = construct_code(0x17, COM_SUBSYSTEM_PDU_MSK),
   PDU_PressureReg_VSET = construct_code(0x18, COM_SUBSYSTEM_PDU_MSK),
+  PGRAMS_COM_CODE_PDU(SiPM_0, 0x19),
+  PGRAMS_COM_CODE_PDU(SiPM_1, 0x1B),
+  PGRAMS_COM_CODE_PDU(SiPM_2, 0x1D),
+  PGRAMS_COM_CODE_PDU(SiPM_3, 0x1F),
+  PGRAMS_COM_CODE_PDU(SiPM_4, 0x21),
+  PGRAMS_COM_CODE_PDU(SiPM_5, 0x23),
+  PGRAMS_COM_CODE_PDU(Tof, 0x25),
 
   // Orchestrator
   ORC_Exec_CPU_Restart = construct_code(0x0, COM_SUBSYSTEM_ORC_MSK),
@@ -71,15 +84,15 @@ enum class CommunicationCodes : uint16_t {
   ORC_Shutdown_Tof_Daq = construct_code(0x10, COM_SUBSYSTEM_ORC_MSK),
   ORC_Boot_Tpc_Daq = construct_code(0x11, COM_SUBSYSTEM_ORC_MSK),
   ORC_Shutdown_Tpc_Daq = construct_code(0x12, COM_SUBSYSTEM_ORC_MSK),
-  ORC_Start_PPS = construct_code(0x13, COM_SUBSYSTEM_ORC_MSK), 
-  ORC_Send_Pulse_Train = construct_code(0x14, COM_SUBSYSTEM_ORC_MSK), 
-  ORC_Stop_PPS = construct_code(0x15, COM_SUBSYSTEM_ORC_MSK), 
+  ORC_Start_PPS = construct_code(0x13, COM_SUBSYSTEM_ORC_MSK),
+  ORC_Send_Pulse_Train = construct_code(0x14, COM_SUBSYSTEM_ORC_MSK),
+  ORC_Stop_PPS = construct_code(0x15, COM_SUBSYSTEM_ORC_MSK),
   ORC_Restart_Orchestrator = construct_code(0x16, COM_SUBSYSTEM_ORC_MSK),
   ORC_Clear_Errors = construct_code(0x17, COM_SUBSYSTEM_ORC_MSK),
   ORC_Set_Data_SSD0 = construct_code(0x18, COM_SUBSYSTEM_ORC_MSK),
   ORC_Set_Data_SSD1 = construct_code(0x19, COM_SUBSYSTEM_ORC_MSK),
 
-  //TPC Readout
+  // TPC Readout
   TPC_Configure = construct_code(0x0, COM_SUBSYSTEM_TPC_MSK),
   TPC_Start_Run = construct_code(0x1, COM_SUBSYSTEM_TPC_MSK),
   TPC_Stop_Run = construct_code(0x2, COM_SUBSYSTEM_TPC_MSK),
@@ -157,12 +170,27 @@ constexpr uint16_t to_u16(CommunicationCodes code) noexcept {
   return static_cast<uint16_t>(code);
 }
 
+inline bool is_pdu_enable_commands(uint16_t code) {
+  if (!isSubsystem(code, COM_SUBSYSTEM_PDU_MSK)) {
+    return false;
+  }
+  else if (to_u16(CommunicationCodes::PDU_Cold_TPC_HV_ON) <= code && code <= to_u16(CommunicationCodes::PDU_DAQ_CPU_OFF)) {
+    return true;
+  }
+  else if (to_u16(CommunicationCodes::PDU_SiPM_0_ON) <= code && code <= to_u16(CommunicationCodes::PDU_Tof_OFF)) {
+    return true;
+  }
+  return false;
+}
+
+
 enum class TelemetryCodes : uint16_t {
   HUB_Telemetry_Normal = construct_code(0x0, COM_SUBSYSTEM_HUB_MSK),
   ORC_Hardware_Status = construct_code(0x20, COM_SUBSYSTEM_ORC_MSK),
   TPC_Hardware_Status = construct_code(0x20, COM_SUBSYSTEM_TPC_MSK),
   TPC_Query_Hardware_Status = construct_code(0x22, COM_SUBSYSTEM_TPC_MSK),
-  TOF_Monitor_Data_Stream = construct_code(0x400, COM_SUBSYSTEM_TOF_MSK)
+  TOF_Monitor_Data_Stream = construct_code(0x400, COM_SUBSYSTEM_TOF_MSK),
+  TOF_Logger_Data_Stream = construct_code(0x401, COM_SUBSYSTEM_TOF_MSK)
 };
 constexpr uint16_t to_telem_u16(TelemetryCodes code) noexcept {
   return static_cast<uint16_t>(code);

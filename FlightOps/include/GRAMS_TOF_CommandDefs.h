@@ -39,6 +39,7 @@ enum class TOFCommandCode : uint16_t {
     PROCESS_QA_IRIDIUM               = 0x5302,
 
     MONITOR_DATA_STREAM              = 0x5400,
+    LOGGER_DATA_STREAM               = 0x5401,
 
     MACRO_THERMAL_CALIB              = 0x5500,
     MACRO_AUTO_RUN_SEQUENCE          = 0x5501,
@@ -100,6 +101,7 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::PROCESS_QA_IRIDIUM:               return os << "PROCESS_QA_IRIDIUM";
         
         case TOFCommandCode::MONITOR_DATA_STREAM:              return os << "MONITOR_DATA_STREAM";
+        case TOFCommandCode::LOGGER_DATA_STREAM:               return os << "LOGGER_DATA_STREAM";
  
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return os << "MACRO_THERMAL_CALIB";
         case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return os << "MACRO_AUTO_RUN_SEQUENCE";
@@ -163,6 +165,8 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
 
         case TOFCommandCode::MONITOR_DATA_STREAM:              return static_cast<pgrams::communication::CommunicationCodes>(
                                                                    pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream);
+        case TOFCommandCode::LOGGER_DATA_STREAM:               return static_cast<pgrams::communication::CommunicationCodes>(
+                                                                   pgrams::communication::TelemetryCodes::TOF_Logger_Data_Stream);
 
         case TOFCommandCode::MACRO_THERMAL_CALIB:              return CommunicationCodes::TOF_Macro_Thermal_Calib;
         case TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE:          return CommunicationCodes::TOF_Macro_Auto_Run_Sequence;
@@ -222,6 +226,8 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
 
         case static_cast<pgrams::communication::CommunicationCodes>(
           pgrams::communication::TelemetryCodes::TOF_Monitor_Data_Stream): return TOFCommandCode::MONITOR_DATA_STREAM;
+        case static_cast<pgrams::communication::CommunicationCodes>(
+          pgrams::communication::TelemetryCodes::TOF_Logger_Data_Stream):  return TOFCommandCode::LOGGER_DATA_STREAM;
 
         case CommunicationCodes::TOF_Macro_Thermal_Calib:              return TOFCommandCode::MACRO_THERMAL_CALIB;
         case CommunicationCodes::TOF_Macro_Auto_Run_Sequence:          return TOFCommandCode::MACRO_AUTO_RUN_SEQUENCE;

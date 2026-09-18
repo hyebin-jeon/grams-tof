@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
     app.add_flag("--no-fpga", config.noFpgaMode, "Skip DAQ initialization for testing without FPGA");
     app.add_option("--command-port", config.commandListenPort, "Command service port (Listening)");
     app.add_option("--event-port", config.eventTargetPort, "Remote Event Server port (Sending)");
+    app.add_option("--command-ip", config.remoteCommandHub, "Remote Command Server IP address");
     app.add_option("--event-ip", config.remoteEventHub, "Remote Event Server IP address");
     app.add_option("--config-file", config.configFile, "Path to the config.ini file");
     app.add_option("--log-file", config.logFile, "Path to the DAQ log file");

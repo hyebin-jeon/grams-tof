@@ -94,6 +94,7 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ROOT_CXX_FLAGS}")
 endif()
 
+add_subdirectory(Common)
 add_subdirectory(Analysis)
 if(ENABLE_DAQ)
     message(STATUS "[Build] DAQ Mode: Configuring FlightOps")

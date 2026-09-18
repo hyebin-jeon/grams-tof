@@ -2,6 +2,7 @@
 
 #include "GRAMS_TOF_CommandCodec.h"
 #include "GRAMS_TOF_MonitorCodec.h"
+#include "GRAMS_TOF_LogCodec.h"
 #include "GRAMS_TOF_Client.h"
 #include "GRAMS_TOF_FDManager.h"
 
@@ -31,7 +32,10 @@ public:
 
     bool isConnected() const;
     bool isHealthy() const;
-    bool sendMonitorData(TOFCommandCode code, const GRAMS_TOF_MonitorCodec::MonitorData& data);
+    bool sendMonitorData(TOFCommandCode code = TOFCommandCode::MONITOR_DATA_STREAM, 
+                         const GRAMS_TOF_MonitorCodec::MonitorData& data = {});
+    bool sendLogData(TOFCommandCode code = TOFCommandCode::LOGGER_DATA_STREAM, 
+                     const GRAMS_TOF_LogCodec::LogData& data = {});
 
 private:
     void run();  // Main client connection/read loop

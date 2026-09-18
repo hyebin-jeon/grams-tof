@@ -231,6 +231,7 @@ int TOF_TdcQdcCalibration::readCalibrationFiles( std::string fTdcCalib, std::str
 	return 1;
 }
 
+/// requires symbolic link for the calibration files
 int TOF_TdcQdcCalibration::readCalibrationFiles( std::string dirPath )
 {
 	std::string tdc_calib = Form( "%s/tdc_calibration.tsv", dirPath.c_str() );

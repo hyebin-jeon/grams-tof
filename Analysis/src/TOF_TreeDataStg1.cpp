@@ -64,9 +64,6 @@ void TOF_TreeDataStg1::setBranchStatus( const char* bname, bool status )
 {
 	if(!fTTree ) {
 		std::cout<< Form("[INFO] Generate Stg%d TTree",getStgNb()) << std::endl;
-
-		//fTTree = new TTree("data", "data");
-		//fTTree = new TTree( Form("stg%d", getStgNb()), Form("stg%d", getStgNb()) );
 		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
@@ -78,8 +75,6 @@ void TOF_TreeDataStg1::setBranchAddress()
 	if(!fTTree ) {
 		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
 		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
-		//fTTree = new TTree("data", "data");
-		//fTTree = new TTree( Form("stg%d", getStgNb()), Form("stg%d", getStgNb()) );
 	}
 
 	int status;
@@ -111,8 +106,6 @@ void TOF_TreeDataStg1::makeBranches()
 	if(!fTTree ) {
 		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
 		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
-		//fTTree = new TTree("data", "data");
-		//fTTree = new TTree( Form("stg%d", getStgNb()), Form("stg%d", getStgNb()) );
 	}
 
 	fTTree->Branch("step1"    , &step1     );
