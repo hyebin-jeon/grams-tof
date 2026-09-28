@@ -9,7 +9,6 @@ set(SOURCES
     src/process_convertStg1ToStg2_impl.cpp
     src/process_tofCoinEvtQA_impl.cpp
 		src/process_tofQA_iridium_impl.cpp
-    src/groundTest_pulse_sync_impl.cpp
 )
 
 add_library(GramsTofAnalysisScriptsCLib SHARED ${SOURCES})
@@ -33,15 +32,11 @@ target_link_libraries(process_convertStg1ToStg2 PRIVATE GramsTofAnalysisScriptsC
 add_executable(process_tofQA_iridium tools/process_tofQA_iridium.cpp)
 target_link_libraries(process_tofQA_iridium PRIVATE GramsTofAnalysisScriptsCLib)
 
-# groundTest_pulse_sync
-add_executable( groundTest_pulse_sync tools/groundTest_pulse_sync.cpp)
-target_link_libraries(groundTest_pulse_sync PRIVATE GramsTofAnalysisScriptsCLib)
 
 install(TARGETS GramsTofAnalysisScriptsCLib
                 process_tofCoinEvtQA
                 process_convertStg1ToStg2
 								process_tofQA_iridium
-								groundTest_pulse_sync
         EXPORT GramsTofLibraryTargets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
