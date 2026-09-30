@@ -3,6 +3,5 @@
 
 
 bool runTofQA_Iridium( const std::string& inputFile,
-                       const std::string& outputBase="",
-											 const std::string& asicListFile=""
-											 );
+                       const std::string& outputBase=""
+		 );

@@ -32,8 +32,8 @@ void tofCoinEvt_20260125_verKS(
   auto theCalib    = TOF_TdcQdcCalibration::getInstance();
  
   // Logic for Calibration Files
-  TString tdcPath = tdcCalibPath;
-  TString qdcPath = qdcCalibPath;
+	std::string tdcPath = tdcCalibPath;
+  std::string qdcPath = qdcCalibPath;
   //TString glibDir = gSystem->Getenv("GLIB");
 
   //if (tdcPath.IsWhitespace()) {
@@ -44,8 +44,8 @@ void tofCoinEvt_20260125_verKS(
   //}
 
   // Load specified or default calibration files
-  printf("[INFO] Loading TDC calibration: %s\n", tdcPath.Data());
-  printf("[INFO] Loading QDC calibration: %s\n", qdcPath.Data());
+  printf("[INFO] Loading TDC calibration: %s\n", tdcPath);
+  printf("[INFO] Loading QDC calibration: %s\n", qdcPath);
   theCalib->readTdcCalib(tdcPath);
   theCalib->readQdcCalib(qdcPath);
 

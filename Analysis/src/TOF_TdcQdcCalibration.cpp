@@ -1,6 +1,7 @@
 
 //#include <fstream>
 #include "TOF_TdcQdcCalibration.h"
+#include <TSystem.h>
 
 ClassImp( TOF_TdcQdcCalibration );
 
@@ -68,13 +69,76 @@ double TOF_TdcQdcCalibration::getA2( uint8_t chipID, uint32_t channelID, uint8_t
 	return -99;
 };
 
-int TOF_TdcQdcCalibration::readTdcCalib( const char *fname )
+int TOF_TdcQdcCalibration::readTdcCalib( std::string fname )
 {
-  std::ifstream finT( fname );
-	if( ! finT.is_open() ) {
-		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
+  TString tdcPath = fname;
+  TString glibDir = gSystem->Getenv("GLIB");
+
+  if (tdcPath.IsWhitespace()) {
+    tdcPath = Form("%s/config/tdc_calibration.tsv", glibDir.Data());
+  }
+	printf("[INFO] Load TDC calibration: %s\n", tdcPath.Data());
+
+  std::ifstream fin( tdcPath.Data() );
+	if( ! fin.is_open() ) {
+		std::cout<< Form( "[ERR] TDC calibration file does not exist.Exit(): %s", tdcPath.Data() ) << std::endl;
 		return TOF_ERR;
 	}
+ 
+  std::string word, sLine;
+  std::stringstream ssLine;
+	const int line0 = 1;
+  int wordN{0}, lineN{0};
+  unsigned short portID, slaveID, chipID, channelID, tacID;
+  double t0, a0, a1, a2;
+  char branch;
+
+	/// read line by line
+  while( std::getline(fin, sLine) )
+  {
+		ssLine.str(sLine);
+		ssLine.clear();
+
+		if( lineN< line0 ) {lineN++; continue;}
+
+		/// break a line to words
+		/// the scan param table should use '\t' to separate variables
+    wordN=0;
+    while( std::getline(ssLine, word, '\t') ) 
+    {   
+			if     ( wordN==0 ) portID    = std::atoi( word.c_str() );
+			else if( wordN==1 ) slaveID   = std::atoi( word.c_str() );
+			else if( wordN==2 ) chipID    = std::atoi( word.c_str() );
+			else if( wordN==3 ) channelID = std::atoi( word.c_str() );
+			else if( wordN==4 ) tacID     = std::atoi( word.c_str() );
+			else if( wordN==5 ) branch    = word[0]; //.c_str();
+			else if( wordN==6 ) t0        = std::atof( word.c_str() );
+			else if( wordN==7 ) a0        = std::atof( word.c_str() );
+			else if( wordN==8 ) a1        = std::atof( word.c_str() );
+			else if( wordN==9 ) a2        = std::atof( word.c_str() );
+			else 
+				std::cout << "[Warning] Too Many Scan Parameter values.. sWord: " << word << std::endl;
+
+			wordN++;
+		}
+
+    if ( branch == 'T' ) {
+      T0[chipID][channelID][tacID][0] = t0;
+      A0[chipID][channelID][tacID][0] = a0;
+      A1[chipID][channelID][tacID][0] = a1;
+      A2[chipID][channelID][tacID][0] = a2;
+    }
+    else {
+      T0[chipID][channelID][tacID][1] = t0;
+      A0[chipID][channelID][tacID][1] = a0;
+      A1[chipID][channelID][tacID][1] = a1;
+      A2[chipID][channelID][tacID][1] = a2;
+    }
+
+		lineN++;
+	}
+
+	/*
   unsigned short portID, slaveID, chipID, channelID, tacID;
   char branch;
   double t0, a0, a1, a2;
@@ -105,16 +169,26 @@ int TOF_TdcQdcCalibration::readTdcCalib( const char *fname )
 		//std::cout << "[TDC calib] T0: " << t0 << std::endl;
     ndata++;
   } while( 1 );
-  std::cout << Form( "TDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
+	*/
+  //std::cout << Form( "TDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
 
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readQdcCalib( const char *fname )
+int TOF_TdcQdcCalibration::readQdcCalib( std::string fname )
 {
-  std::ifstream finQ( fname );
+  TString qdcPath = fname;
+  TString glibDir = gSystem->Getenv("GLIB");
+  
+	if (qdcPath.IsWhitespace()) {
+    qdcPath = Form("%s/config/qdc_calibration.tsv", glibDir.Data());
+  }
+
+  printf("[INFO] Load QDC calibration: %s\n", qdcPath.Data());
+
+  std::ifstream finQ( qdcPath.Data() );
 	if( ! finQ.is_open() ) {
-		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", fname ) << std::endl;
+		std::cout<< Form( "[ERR] QDC calibration file does not exist.Exit(): %s", qdcPath.Data() ) << std::endl;
 		return TOF_ERR;
 	}
   unsigned short portID, slaveID, chipID, channelID, tacID;
@@ -144,12 +218,12 @@ int TOF_TdcQdcCalibration::readQdcCalib( const char *fname )
 		//std::cout << "[QDC calib] P0: " << p0 << std::endl;
 		ndata++;
   } while( 1 );
-  std::cout << Form( "QDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
+  //std::cout << Form( "QDC Calibration Data (%d lines) Loaded.", ndata ) << std::endl;
 
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readCalibrationFiles( const char* fTdcCalib, const char* fQdcCalib )
+int TOF_TdcQdcCalibration::readCalibrationFiles( std::string fTdcCalib, std::string fQdcCalib )
 {
 	auto tdc = readTdcCalib( fTdcCalib );
 	auto qdc = readQdcCalib( fQdcCalib );
@@ -157,10 +231,11 @@ int TOF_TdcQdcCalibration::readCalibrationFiles( const char* fTdcCalib, const ch
 	return 1;
 }
 
-int TOF_TdcQdcCalibration::readCalibrationFiles( const char* dirPath )
+/// requires symbolic link for the calibration files
+int TOF_TdcQdcCalibration::readCalibrationFiles( std::string dirPath )
 {
-	const char* tdc_calib = Form( "%s/tdc_calibration.tsv", dirPath );
-	const char* qdc_calib = Form( "%s/qdc_calibration.tsv", dirPath );
+	std::string tdc_calib = Form( "%s/tdc_calibration.tsv", dirPath.c_str() );
+	std::string qdc_calib = Form( "%s/qdc_calibration.tsv", dirPath.c_str() );
 	auto ok = readCalibrationFiles( tdc_calib, qdc_calib );
 
 	return ok;

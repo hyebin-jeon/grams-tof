@@ -33,7 +33,11 @@ int TOF_TreeDataStg1::setInputPath( const char* fpath )
 	std::cout << Form("[Info] Stg%d Input File: ", getStgNb()) << fpath << std::endl;
 
 	fTFile = new TFile( fpath, "read" );
-	fTTree = (TTree*) fTFile->Get( "ptree" );
+
+	fTTree = (TTree*) fTFile->Get( getTTreeName().c_str() );
+	if( !fTTree ) fTTree = (TTree*) fTFile->Get( "data" ); // temperary during transition from data->stg1
+	if( !fTTree ) fTTree = (TTree*) fTFile->Get( "ptree" ); // Kenichi's convention
+
 	if( !fTTree ) {
 		std::cerr<< Form( "[ERR] TTree does NOT exist in %s:", fpath ) << std::endl;
 		return TOF_ERR;
@@ -59,8 +63,8 @@ void TOF_TreeDataStg1::setOutputPath( const char* fpath, const char* opt )
 void TOF_TreeDataStg1::setBranchStatus( const char* bname, bool status )
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree",getStgNb()) << std::endl;
-		fTTree = new TTree("ptree", "data");
+		std::cout<< Form("[INFO] Generate Stg%d TTree",getStgNb()) << std::endl;
+		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	fTTree->SetBranchStatus( bname, status );
@@ -69,8 +73,8 @@ void TOF_TreeDataStg1::setBranchStatus( const char* bname, bool status )
 void TOF_TreeDataStg1::setBranchAddress()
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
-		fTTree = new TTree("ptree", "data");
+		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
+		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	int status;
@@ -100,8 +104,8 @@ void TOF_TreeDataStg1::setBranchAddress()
 void TOF_TreeDataStg1::makeBranches()
 {
 	if(!fTTree ) {
-		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
-		fTTree = new TTree("ptree", "data");
+		std::cout<< Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
+		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	fTTree->Branch("step1"    , &step1     );

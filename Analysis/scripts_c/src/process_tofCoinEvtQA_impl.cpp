@@ -40,23 +40,23 @@ bool runProcessTofCoinEvtQA(const std::string& inputFile,
   auto theAttrib   = TOF_Attributes::getInstance();
   auto theCalib    = TOF_TdcQdcCalibration::getInstance();
 
-  // Logic for Calibration Files
-  TString tdcPath = tdcCalibPath;
-  TString qdcPath = qdcCalibPath;
-  TString glibDir = gSystem->Getenv("GLIB");
+  //// Logic for Calibration Files
+  //TString tdcPath = tdcCalibPath;
+  //TString qdcPath = qdcCalibPath;
+  //TString glibDir = gSystem->Getenv("GLIB");
 
-  if (tdcPath.IsWhitespace()) {
-    tdcPath = Form("%s/config/tdc_calibration.tsv", glibDir.Data());
-  }
-  if (qdcPath.IsWhitespace()) {
-    qdcPath = Form("%s/config/qdc_calibration.tsv", glibDir.Data());
-  }
+  //if (tdcPath.IsWhitespace()) {
+  //  tdcPath = Form("%s/config/tdc_calibration.tsv", glibDir.Data());
+  //}
+  //if (qdcPath.IsWhitespace()) {
+  //  qdcPath = Form("%s/config/qdc_calibration.tsv", glibDir.Data());
+  //}
 
-  // Load specified or default calibration files
-  printf("[INFO] Load TDC calibration: %s\n", tdcPath.Data());
-  printf("[INFO] Load QDC calibration: %s\n", qdcPath.Data());
-  theCalib->readTdcCalib(tdcPath);
-  theCalib->readQdcCalib(qdcPath);
+  //// Load specified or default calibration files
+  //printf("[INFO] Load TDC calibration: %s\n", tdcPath.Data());
+  //printf("[INFO] Load QDC calibration: %s\n", qdcPath.Data());
+  theCalib->readTdcCalib(tdcCalibPath);
+  theCalib->readQdcCalib(qdcCalibPath);
 
 	/// ROI channel list
 	//uint8_t febD_connID = 4; // connector ID on FEB/D. range [1,8].

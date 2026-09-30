@@ -78,11 +78,14 @@ bool GRAMS_TOF_Analyzer::runPetsysConvertRawToSingles(
 
 bool GRAMS_TOF_Analyzer::runPetsysConvertStg1ToStg2(
     const std::string& inputFileName,
-    const std::string& outputDir)
+    const std::string& outputDir,
+    const std::string& tdcCalibPath,
+    const std::string& qdcCalibPath
+)
 {
     return safeRun("runPetsysConvertStg1ToStg2",
                    runConvertStg1ToStg2,
-                   inputFileName, outputDir);
+                   inputFileName, outputDir, tdcCalibPath, qdcCalibPath);
 }
 
 
@@ -91,7 +94,7 @@ bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
     const std::string& outputBase,
     const std::string& tdcCalibPath,
     const std::string& qdcCalibPath,
-		const int          febD_connID
+    const int          febD_connID
 		)
 {
     return safeRun("runPetsysProcessTofCoinEvt",
@@ -101,11 +104,11 @@ bool GRAMS_TOF_Analyzer::runPetsysProcessTofCoinEvtQA(
 
 bool GRAMS_TOF_Analyzer::runPetsysProcessTofQAIridium(
     const std::string& inputFileName,
-    const std::string& outputBase,
-    const std::string& asicListFile)
+    const std::string& outputBase )
+    //const std::string& asicListFile)
 {
     return safeRun("runPetsysProcessTofQAIridium",
 		    runTofQA_Iridium,
-                   inputFileName, outputBase, asicListFile);
+                    inputFileName, outputBase ); //, asicListFile);
 }
 

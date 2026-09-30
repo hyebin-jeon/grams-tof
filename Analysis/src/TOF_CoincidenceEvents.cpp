@@ -70,9 +70,9 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		fStg2->getEntry(i);
 
 		auto ts_cpu = fStg2->getTimeStampCPU();
-		auto ts_pps = fStg2->getTimeStampPPS();
+		//auto ts_pps = fStg2->getTimeStampPPS();
 		channelInfo.ts_cpu    = ts_cpu;
-		channelInfo.ts_pps    = ts_pps;
+		//channelInfo.ts_pps    = ts_pps;
 
 		auto frameID      = fStg2->getFrameID();
 		auto tCoarse      = fStg2->getTCoarse();
@@ -130,7 +130,7 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 		    auto hit_tFine     = vChannelData[activeChanID].tFine  ;
 		    auto hit_eFine     = vChannelData[activeChanID].eFine  ;
 				auto hit_ts_cpu    = vChannelData[activeChanID].ts_cpu ;    
-				auto hit_ts_pps    = vChannelData[activeChanID].ts_pps ;    
+				//auto hit_ts_pps    = vChannelData[activeChanID].ts_pps ;    
 
 				auto hit_timeBegin = TOF_TdcQdcCalibration::getInstance()->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
 				//auto hit_timeBegin = theCalib->getCalibratedTime( TOF_Branch::fBranchT, hit_channelID, hit_tacID, hit_frameID, hit_tCoarse, hit_tFine );
@@ -163,7 +163,7 @@ TTree* TOF_CoincidenceEvents::getCoincidenceEventsTree()
 				channelBrElement.timeEnd   = hit_timeEnd  ;
 				channelBrElement.qdc_cal   = hit_qdc_cal  ;
 				channelBrElement.ts_cpu    = hit_ts_cpu   ;    
-				channelBrElement.ts_pps    = hit_ts_pps   ;    
+				//channelBrElement.ts_pps    = hit_ts_pps   ;    
 
 				vBranch.push_back( channelBrElement );
 			}

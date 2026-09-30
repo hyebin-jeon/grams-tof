@@ -14,6 +14,8 @@ set(GRAMS_TOF_ANALYSIS_FILES
 	src/TOF_CoincidenceEvents.cpp
 	src/TOF_CoincidenceChannelInfo.cpp
 	src/TOF_DiscriminatorCalibation.cpp
+	src/TOF_ActiveAsicList.cpp
+	src/TOF_PaddleChannelMap.cpp
 )
 
 set(GRAMS_TOF_ANALYSIS_HEADERS
@@ -30,6 +32,8 @@ set(GRAMS_TOF_ANALYSIS_HEADERS
   TOF_CoincidenceEvents.h
   TOF_CoincidenceChannelInfo.h
   TOF_DiscriminatorCalibation.h
+	TOF_ActiveAsicList.h
+	TOF_PaddleChannelMap.h
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -11,28 +11,31 @@
 #include <array>
 #include "TObject.h"
 #include "TString.h"
+#include "TOF_ActiveAsicList.h"
 
 class TOF_ChannelConversion : public TObject
 {
   public:
-    inline static TOF_ChannelConversion * theChanCov{nullptr}; 
+    inline static TOF_ChannelConversion * theChanConv{nullptr}; 
   	static TOF_ChannelConversion *getInstance() {
-  		if( theChanCov == nullptr ) {
-  			theChanCov = new TOF_ChannelConversion;
+  		if( theChanConv == nullptr ) {
+  			theChanConv = new TOF_ChannelConversion;
   		}
+
+			theChanConv->fillChannelMaps();
   
-  		return theChanCov;
+  		return theChanConv;
   	};
   
   	~TOF_ChannelConversion() = default;
-
+		
 	private: 
 		/// map between connector ID on FEB/S (J1-J128) and channel ID on the software (ch0-ch127)
 		std::map<uint8_t, uint8_t> fMap_ConnIdToChannelId;
 		std::map<uint8_t, uint8_t> fMap_ChannelIdToConnId;
 
-		uint8_t fFebD_connID0; // TOF
-		uint8_t fFebD_connID1; // MPD
+		//uint8_t fFebD_connID0; 
+		//uint8_t fFebD_connID1; 
 
 	public:
 		void fillMapConnIdToChannelId();
@@ -62,13 +65,9 @@ class TOF_ChannelConversion : public TObject
 		uint8_t getConnIdOnFebD( uint32_t absoluteChannel ); // 1-8
 		uint8_t getConnIdOnFebS( uint32_t absoluteChannel ); // 1-128
 
-		int      readActiveAsicList( const char* fname );
 		uint16_t getPhysicalChannelID( uint32_t absoluteChannel );
 		uint16_t getPhysicalChannelID( uint8_t febD_connID, uint8_t febS_connID );
 		uint16_t getPhysicalChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID );
-
-		void    setActiveConnIdOnFebD( uint8_t febD_connID_a, uint8_t febD_connID_b );
-		std::array<uint8_t,2> getActiveConnIdOnFebD() { return {fFebD_connID0, fFebD_connID1}; };
 		
 	  ClassDef(TOF_ChannelConversion, 1)
 

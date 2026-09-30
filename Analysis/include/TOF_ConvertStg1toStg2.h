@@ -7,6 +7,8 @@
 #include "TTimeStamp.h"
 #include "TOF_TreeDataStg1.h"
 #include "TOF_TreeDataStg2.h"
+#include "TOF_PaddleChannelMap.h"
+#include "TOF_TdcQdcCalibration.h"
 #include "TOF_Constants.h"
 #include "TOF_TdcQdcCalibration.h"
 #include <iostream>
@@ -44,21 +46,18 @@ class TOF_ConvertStg1toStg2 : public TObject
 		void setClassStg1();
 		void setClassStg2();
 
+		std::string fTdcPath;
+		std::string fQdcPath;
+
 	public: 
 		int  setInputPathStg1( const char* fpath );
-		int  addBranches_TSandConnID();
-		//int  addConnIdBranches();
+		int  addBranches();
 
-    int  loadCalibration( const char* fTdcCalib, const char* fQdcCalib ) {
-			fCalib = TOF_TdcQdcCalibration::getInstance();
-			return fCalib->readCalibrationFiles( fTdcCalib, fQdcCalib );
-		}
-		int  loadCalibration( const char* dirPath ) {
-			fCalib = TOF_TdcQdcCalibration::getInstance();
-			return fCalib->readCalibrationFiles( dirPath );
-		}
+		int  loadCalibration( const std::string kDirPath );
+    int  loadCalibration( const std::string kTdcPath, const std::string kQdcPath );
 
-    void convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2="", const char* calibDir="" );
+		void convertStg1ToStg2( const char* kPathStg1, const char* kPathStg2="", const char* tdc_cal_tsv="", const char* qdc_cal_tsv=""); 
+		
 		TOF_TreeDataStg1* getStg1() {return fStg1; };
 		TOF_TreeDataStg2* getStg2() {return fStg2; };
 

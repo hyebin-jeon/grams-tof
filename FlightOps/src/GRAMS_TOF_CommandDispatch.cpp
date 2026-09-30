@@ -734,6 +734,14 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             auto timestampStr = config.getLatestTimestamp(config.getSTG1Dir(), "run");
             Logger::instance().info("[CommandDispatch] Converting stg1 to stg2...");
 
+            //return analyzer_.runPetsysConvertStg1ToStg2(
+		        //    config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root"),
+            //    config.getSTG2Dir(),
+            //    config.getString("main", "tdc_calibration_table"),
+            //    config.getString("main", "qdc_calibration_table")
+            //    //config.getAbsolutePath("main", "tdc_calibration_table"),
+            //    //config.getAbsolutePath("main", "tdc_calibration_table"),
+
             std::string inputFile  = config.getFileByTimestamp(config.getSTG1Dir(), "run", timestampStr, "stg1.root");
             std::string outputFile = config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root");
 
@@ -755,6 +763,10 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
         return executeSimpleCommand(TOFCommandCode::PROCESS_QA_COIN, [&]() {
             auto timestampStr = config.getLatestTimestamp(config.getSTG2Dir(), "run");
             Logger::instance().info("[CommandDispatch] Running TOF coin evt calculation...");
+
+            //return analyzer_.runPetsysProcessTofCoinEvtQA(
+            //    config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
+		        //    config.getSTG2Dir(),
 
             std::string inputFile = config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root");
             std::string rootFile  = config.makeFilePathWithTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.coin.root");
@@ -788,7 +800,9 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             std::string pdfFile   = config.makeFilePathWithTimestamp(config.getHistDir(), "run", timestampStr, "stg2.iridiumQA.pdf");
 
             bool output = analyzer_.runPetsysProcessTofQAIridium(
-                inputFile, config.getHistDir(), config.getString("main", "active_asic_list")
+              //config.getFileByTimestamp(config.getSTG2Dir(), "run", timestampStr, "stg2.root"),
+	      //config.getHistDir()
+              inputFile, config.getHistDir()
             );
 
             if (!output) {

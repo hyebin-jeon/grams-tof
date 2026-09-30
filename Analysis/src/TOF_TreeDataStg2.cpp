@@ -7,15 +7,13 @@ void TOF_TreeDataStg2::setBranchAddress()
 {
 	if(!fTTree ) {
 		std::cout<< Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
-		fTTree = new TTree("ptree", "data");
+		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	int status;
 
   status = fTTree->SetBranchAddress("ts_cpu"    , &ts_cpu    );
 	if (status < 0) std::cerr << "[ERR] Failed to set address for ts_cpu (Status: " << status << ")" << std::endl;
-  status = fTTree->SetBranchAddress("ts_pps"    , &ts_pps    );
-	if (status < 0) std::cerr << "[ERR] Failed to set address for ts_pps (Status: " << status << ")" << std::endl;
   status = fTTree->SetBranchAddress("step1"    , &step1    );
 	if (status < 0) std::cerr << "[ERR] Failed to set address for step1 (Status: " << status << ")" << std::endl;
   status = fTTree->SetBranchAddress("step2"    , &step2    );
@@ -38,10 +36,12 @@ void TOF_TreeDataStg2::setBranchAddress()
 	if (status < 0) std::cerr << "[ERR] Failed to set address for tfine (Status: " << status << ")" << std::endl;
   status = fTTree->SetBranchAddress("efine"    , &eFine    );
 	if (status < 0) std::cerr << "[ERR] Failed to set address for efine (Status: " << status << ")" << std::endl;
-  status = fTTree->SetBranchAddress("time"     , &time     );
-	if (status < 0) std::cerr << "[ERR] Failed to set address for time   (Status: " << status << ")" << std::endl;
-  status = fTTree->SetBranchAddress("charge"   , &charge   );
-	if (status < 0) std::cerr << "[ERR] Failed to set address for charge (Status: " << status << ")" << std::endl;
+  status = fTTree->SetBranchAddress("paddleIdx"    , &paddleIdx    );
+	if (status < 0) std::cerr << "[ERR] Failed to set address for paddleIdx (Status: " << status << ")" << std::endl;
+  status = fTTree->SetBranchAddress("tdc_cal"    , &tdc_cal    );
+	if (status < 0) std::cerr << "[ERR] Failed to set address for tdc_cal (Status: " << status << ")" << std::endl;
+  status = fTTree->SetBranchAddress("qdc_cal"    , &qdc_cal    );
+	if (status < 0) std::cerr << "[ERR] Failed to set address for qdc_cal (Status: " << status << ")" << std::endl;
   
 	return;
 }
@@ -50,25 +50,25 @@ void TOF_TreeDataStg2::setBranchAddress()
 void TOF_TreeDataStg2::makeBranches()
 {
 	if(!fTTree ) {
-		std::cout << Form("[WARN] Generate Stg%d TTree", getStgNb()) << std::endl;
-		fTTree = new TTree("ptree", "data");
+		std::cout << Form("[INFO] Generate Stg%d TTree", getStgNb()) << std::endl;
+		fTTree = new TTree( getTTreeName().c_str(), getTTreeName().c_str() );
 	}
 
 	fTTree->Branch("ts_cpu"     , &ts_cpu, 32000, 0);
-	fTTree->Branch("ts_pps"     , &ts_pps, 32000, 0);
 	fTTree->Branch("step1"      , &step1       );
 	fTTree->Branch("step2"      , &step2       );
 	fTTree->Branch("frameID"    , &frameID     );
 	fTTree->Branch("channelID"  , &channelID   );
 	fTTree->Branch("connID_febD", &connID_febD );
 	fTTree->Branch("connID_febS", &connID_febS );
+	fTTree->Branch("paddleIdx"  , &paddleIdx   );
 	fTTree->Branch("tacID"      , &tacID       );
 	fTTree->Branch("tcoarse"    , &tCoarse     );
 	fTTree->Branch("ecoarse"    , &eCoarse     );
 	fTTree->Branch("tfine"      , &tFine       );
 	fTTree->Branch("efine"      , &eFine       );
-  fTTree->Branch("time"       , &time        );
-  fTTree->Branch("charge"     , &charge      );
+	fTTree->Branch("tdc_cal"    , &tdc_cal       );
+	fTTree->Branch("qdc_cal"    , &qdc_cal       );
 
 	return;
 }

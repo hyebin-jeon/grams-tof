@@ -1,4 +1,4 @@
-# grams-tof-library
+# grams-tof
 
 This project combines the following existing libraries:
 - **FlightOps/Time-of-Flight**: ToF DAQ library based on Tofpet2 library
