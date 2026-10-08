@@ -125,6 +125,11 @@ class TOF_TdcQdcCalibration : public TObject
     double P7[16][64][4];
     double P8[16][64][4];
     double P9[16][64][4];
+
+	private:
+		int fVerbose{0};
+	public:
+		void setVerbose( int verb ){ fVerbose = verb; };
 	
 	ClassDef(TOF_TdcQdcCalibration, 1)
 };
