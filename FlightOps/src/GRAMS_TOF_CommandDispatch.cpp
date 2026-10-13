@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <filesystem>
+#include <cstdlib> 
 
 namespace {
 
@@ -293,6 +294,35 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             return executeManagedBackground(TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE, "read_temperature_sensors.py", sArgs, callback);
         } catch (...) {
             Logger::instance().error("[CommandDispatch] Exception in READ_TEMPERATURE_SENSORS_SINGLE");
+            return false;
+        }
+    };
+
+    // SEND_PULSE_TRAIN (arm AD3 pulse train for the next GPS PPS, ad3_ctrl 3)
+    table_[TOFCommandCode::SEND_PULSE_TRAIN] = [&](const GRAMS_TOF_CommandDispatch::CommandArgs& argv) {
+        try {
+            const std::string ad3Path = "/usr/local/bin/ad3_ctrl";
+
+            // ad3_ctrl is not installed: report the error and skip (do not abort macros)
+            if (::access(ad3Path.c_str(), X_OK) != 0) {
+                Logger::instance().error("[CommandDispatch] {} not found or not executable. Skipping SEND_PULSE_TRAIN", ad3Path);
+                sendStatusCallback(TOFCommandCode::SEND_PULSE_TRAIN, 1);
+                return true;
+            }
+
+            Logger::instance().info("[CommandDispatch] Executing ad3_ctrl 3 (pulse train)...");
+            const std::string cmd = ad3Path + " 3";
+            const int rc = std::system(cmd.c_str());
+            const bool success = (rc != -1 && WIFEXITED(rc) && WEXITSTATUS(rc) == 0);
+
+            if (!success) {
+                Logger::instance().error("[CommandDispatch] '{}' failed (rc={})", cmd, rc);
+            }
+
+            sendStatusCallback(TOFCommandCode::SEND_PULSE_TRAIN, success ? 0 : 1);
+            return success;
+        } catch (...) {
+            Logger::instance().error("[CommandDispatch] Exception in SEND_PULSE_TRAIN");
             return false;
         }
     };
@@ -815,18 +845,22 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
             config.linkVaultFileToOriginalDir(pdfFile, originalHistDir);
 
             auto path = config.getFileByTimestamp(config.getHistDir(), "run", timestampStr, "iridiumQA.root");
-            auto monitorDataList = GRAMS_TOF_RootConverter::scanFile(path, 0);
+            auto scan = GRAMS_TOF_RootConverter::scanFile(path, 0);
 
-            if (monitorDataList.empty()) {
-                Logger::instance().error("[CommandDispatch] No histograms found or file missing: {}", path);
+            if (scan.empty()) {
+                Logger::instance().error("[CommandDispatch] No monitor objects found or file missing: {}", path);
                 return false;
             }
 
-            for (const auto& data : monitorDataList) {
+            for (const auto& data : scan.hists)
                 eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data);
-            }
+            for (const auto& data : scan.graphs)
+                eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data);
+            for (const auto& data : scan.params)
+                eventClient_.sendMonitorData(TOFCommandCode::MONITOR_DATA_STREAM, data);
 
-            Logger::instance().info("[CommandDispatch] Successfully streamed {} histograms.", monitorDataList.size());
+            Logger::instance().info("[CommandDispatch] Successfully streamed {} monitor objects ({} hists, {} graphs, {} params).",
+                scan.size(), scan.hists.size(), scan.graphs.size(), scan.params.size());
             return true;
         });
     };
@@ -1000,6 +1034,7 @@ GRAMS_TOF_CommandDispatch::GRAMS_TOF_CommandDispatch(
                 TOFCommandCode::ACQUIRE_THRESHOLD_CALIBRATION_D,
                 TOFCommandCode::START_ASIC_TEMP_RECORD,
                 TOFCommandCode::ACQUIRE_SIPM_DATA,
+                TOFCommandCode::SEND_PULSE_TRAIN,
                 TOFCommandCode::STOP_ASIC_TEMP_RECORD,
                 TOFCommandCode::CONVERT_RAW_TO_RAW,
                 TOFCommandCode::CONVERT_STG1_TO_STG2,
@@ -1251,7 +1286,8 @@ bool GRAMS_TOF_CommandDispatch::executeMacroSequence(
         }
     }
 
-    for (auto cmd : sequence) {
+    for (size_t i = 0; i < sequence.size(); ++i) {
+        const auto cmd = sequence[i];
         if (!macroLoopRunning_) {
             Logger::instance().warn("[CommandDispatch][{}] Stop flag detected mid-sequence. Aborting.", macroName);
             if (!vaultSubDir.empty()) config.clearVaultPath();
@@ -1269,6 +1305,17 @@ bool GRAMS_TOF_CommandDispatch::executeMacroSequence(
 
         if (cmd == TOFCommandCode::RESET_DAQ) {
           macroLoopRunning_ = true;
+        }
+
+        // ACQUIRE_SIPM_DATA + SEND_PULSE_TRAIN
+        if (cmd == TOFCommandCode::ACQUIRE_SIPM_DATA && i + 1 < sequence.size() &&
+            sequence[i + 1] == TOFCommandCode::SEND_PULSE_TRAIN) {
+            ++i; // consume the SEND_PULSE_TRAIN step here
+            Logger::instance().info("[CommandDispatch][{}] Waiting 4 s after DAQ start before SEND_PULSE_TRAIN", macroName);
+            std::this_thread::sleep_for(std::chrono::seconds(4));
+            if (macroLoopRunning_ && !this->dispatch(TOFCommandCode::SEND_PULSE_TRAIN, {})) {
+                Logger::instance().error("[CommandDispatch][{}] SEND_PULSE_TRAIN failed. Continuing, DAQ is still running", macroName);
+            }
         }
 
         bool is_running = true;
@@ -1427,5 +1474,3 @@ void GRAMS_TOF_CommandDispatch::stopTempRecord() {
         tempRecordThread_.join();
     }
 }
-
-

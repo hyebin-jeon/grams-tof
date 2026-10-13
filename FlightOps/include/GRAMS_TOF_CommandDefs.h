@@ -27,6 +27,7 @@ enum class TOFCommandCode : uint16_t {
     START_ASIC_TEMP_RECORD           = 0x510E,
     STOP_ASIC_TEMP_RECORD            = 0x510F,
     READ_TEMPERATURE_SENSORS_SINGLE  = 0x5110,
+    SEND_PULSE_TRAIN                 = 0x5111,
 
     PROCESS_THRESHOLD_CALIBRATION    = 0x5200,
     PROCESS_TDC_CALIBRATION          = 0x5201,
@@ -89,6 +90,7 @@ inline std::ostream& operator<<(std::ostream& os, TOFCommandCode code) {
         case TOFCommandCode::START_ASIC_TEMP_RECORD:           return os << "START_ASIC_TEMP_RECORD";
         case TOFCommandCode::STOP_ASIC_TEMP_RECORD:            return os << "STOP_ASIC_TEMP_RECORD";
         case TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE:  return os << "READ_TEMPERATURE_SENSORS_SINGLE";
+        case TOFCommandCode::SEND_PULSE_TRAIN:                 return os << "SEND_PULSE_TRAIN";
 
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return os << "PROCESS_THRESHOLD_CALIBRATION";
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return os << "PROCESS_TDC_CALIBRATION";
@@ -152,6 +154,7 @@ inline CommunicationCodes toCommCode(TOFCommandCode code) {
         case TOFCommandCode::START_ASIC_TEMP_RECORD:           return CommunicationCodes::TOF_Start_Asic_Temp_Record;
         case TOFCommandCode::STOP_ASIC_TEMP_RECORD:            return CommunicationCodes::TOF_Stop_Asic_Temp_Record;
         case TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE:  return CommunicationCodes::TOF_Read_Temperature_Sensors_Single;
+        case TOFCommandCode::SEND_PULSE_TRAIN:                 return CommunicationCodes::TOF_Send_Pulse_Train;
 
         case TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION:    return CommunicationCodes::TOF_Process_Threshold_Calibration;
         case TOFCommandCode::PROCESS_TDC_CALIBRATION:          return CommunicationCodes::TOF_Process_TDC_Calibration;
@@ -213,6 +216,7 @@ inline TOFCommandCode toTOFCommand(CommunicationCodes code) {
         case CommunicationCodes::TOF_Start_Asic_Temp_Record:           return TOFCommandCode::START_ASIC_TEMP_RECORD;
         case CommunicationCodes::TOF_Stop_Asic_Temp_Record:            return TOFCommandCode::STOP_ASIC_TEMP_RECORD;
         case CommunicationCodes::TOF_Read_Temperature_Sensors_Single:  return TOFCommandCode::READ_TEMPERATURE_SENSORS_SINGLE;
+        case CommunicationCodes::TOF_Send_Pulse_Train:                 return TOFCommandCode::SEND_PULSE_TRAIN; 
 
         case CommunicationCodes::TOF_Process_Threshold_Calibration:    return TOFCommandCode::PROCESS_THRESHOLD_CALIBRATION;
         case CommunicationCodes::TOF_Process_TDC_Calibration:          return TOFCommandCode::PROCESS_TDC_CALIBRATION;

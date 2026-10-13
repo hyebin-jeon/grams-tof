@@ -32,8 +32,12 @@ public:
 
     bool isConnected() const;
     bool isHealthy() const;
-    bool sendMonitorData(TOFCommandCode code = TOFCommandCode::MONITOR_DATA_STREAM, 
-                         const GRAMS_TOF_MonitorCodec::MonitorData& data = {});
+    bool sendMonitorData(TOFCommandCode code = TOFCommandCode::MONITOR_DATA_STREAM,
+                         const GRAMS_TOF_MonitorCodec::MonitorData&   data = {});
+    bool sendMonitorData(TOFCommandCode code,
+                         const GRAMS_TOF_MonitorCodec::GraphData&     data);
+    bool sendMonitorData(TOFCommandCode code,
+                         const GRAMS_TOF_MonitorCodec::ParameterData& data);
     bool sendLogData(TOFCommandCode code = TOFCommandCode::LOGGER_DATA_STREAM, 
                      const GRAMS_TOF_LogCodec::LogData& data = {});
 
