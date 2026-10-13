@@ -26,3 +26,16 @@ mysql -u pgrams_user -p -D grams_tof -e "SELECT level_str, component, message, t
 (Wipe current data)
 mysql -u pgrams_user -p -D grams_tof -e "TRUNCATE TABLE tof_monitor;"
 mysql -u pgrams_user -p -D grams_tof -e "TRUNCATE TABLE tof_logs;"
+
+ksakai@xps15:~/work/source/grams-tof/GroundOps/env$ mysql -h 127.0.0.1 -P 3306 -u pgrams_user -ppgrams_user grams_tof < /home/ksakai/work/source/grams-tof/GroundOps/sql/migrate_add_graph_parameter.sql
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ksakai@xps15:~/work/source/grams-tof/GroundOps/env$ mysql -h 127.0.0.1 -P 3306 -u pgrams_user -ppgrams_user grams_tof -e "SHOW TABLES;"
+mysql: [Warning] Using a password on the command line interface can be insecure.
++---------------------+
+| Tables_in_grams_tof |
++---------------------+
+| tof_graphs          |
+| tof_logs            |
+| tof_monitor         |
+| tof_parameters      |
++---------------------+

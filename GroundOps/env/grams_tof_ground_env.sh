@@ -9,10 +9,9 @@ export PGRAMS_MOSQUITTO_USER=""
 export PGRAMS_MOSQUITTO_PASSWD=""
 
 # --- MySQL Configuration ---
-export TOF_MYSQL_HOST="127.0.0.1"
-export TOF_MYSQL_USER="pgrams_user"
-export TOF_MYSQL_DB="grams_tof"
-export TOF_MYSQL_PASS="pgrams_user"
+export PGRAMS_MYSQL_HOST="127.0.0.1"
+export PGRAMS_MYSQL_USER="pgrams_user"
+export PGRAMS_MYSQL_PASSWD="pgrams_user"
 
 # --- Project Paths ---
 export GLIB=$HOME/work/source/grams-tof/00build/00install
