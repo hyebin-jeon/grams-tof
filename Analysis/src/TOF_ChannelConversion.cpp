@@ -323,24 +323,6 @@ uint8_t TOF_ChannelConversion::getConnIdOnFebD( uint32_t channel )
 	return connID;
 }
 
-uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
-{
-	auto theAsicList = TOF_ActiveAsicList::getInstance();
-	auto activeAsic = theAsicList->getActiveConnIdOnFebD();
-
-	auto febD = getConnIdOnFebD( absoluteChannel );
-	auto febS = getConnIdOnFebS( absoluteChannel );
-
-	uint8_t febD_idx = 2; // dummy initilization
-	if     ( febD == activeAsic[0] ) febD_idx = 0;
-	else if( febD == activeAsic[1] ) febD_idx = 1;
-	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
-
-	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
-
-	return phyID;
-}
-
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS )
 {
 	auto theAsicList = TOF_ActiveAsicList::getInstance();
@@ -356,22 +338,21 @@ uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t febD, uint8_t febS
 	return phyID;
 }
 
+uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint32_t absoluteChannel )
+{
+	auto febD = getConnIdOnFebD( absoluteChannel );
+	auto febS = getConnIdOnFebS( absoluteChannel );
+
+	return getPhysicalChannelID( febD, febS );
+}
+
 uint16_t TOF_ChannelConversion::getPhysicalChannelID( uint8_t portID, uint8_t slaveID, uint8_t chipID, uint8_t channelID )
 {
 	auto theAsicList = TOF_ActiveAsicList::getInstance();
 	auto activeAsic = theAsicList->getActiveConnIdOnFebD();
 
 	auto absoluteChannel = getAbsoluteChannelID( portID, slaveID, chipID, channelID );
-	auto febD = getConnIdOnFebD( absoluteChannel );
-	auto febS = getConnIdOnFebS( absoluteChannel );
 
-	uint8_t febD_idx = 2; // dummy initilization
-	if     ( febD == activeAsic[0] ) febD_idx = 0;
-	else if( febD == activeAsic[1] ) febD_idx = 1;
-	else std::cerr << "[WARN] This channel is not connected to the active FEB-D connector" << std::endl;
-
-	uint16_t phyID = (static_cast<uint16_t>( febD )<<8) + febS;
-
-	return phyID;
+	return getPhysicalChannelID( absoluteChannel );
 }
 

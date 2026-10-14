@@ -131,7 +131,7 @@ bool runTofQA_Iridium( const std::string& inputFile,
 		}
 
 		int febS_idx= thePaddle->getFebSIdx( connID_D );
-		if( febS_idx<0 ) continue;
+		if( febS_idx<0 ) return false; //continue;
 		if( febS_idx!=0 ) continue; // use only first idx for the upcoming flight (2026)
 
 		int systIdx   = (int) thePaddle->getSystemIdx  ( paddleIdx );
